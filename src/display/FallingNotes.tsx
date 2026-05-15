@@ -1,19 +1,28 @@
-// FallingNotes.tsx — Canvas animation: colored rectangles fall from top to the play line
-// Each rectangle maps to one SongNote; its x-position is derived from the button column
-// so it falls directly toward the button the user must press.
-// Angular equivalent: a service + component pair running an imperative animation loop.
+/**
+ * @file FallingNotes.tsx
+ * @description Canvas-based animation of colored rectangles falling toward the play line.
+ */
+
 import { useRef, useEffect } from 'react'
 import type { Song, SongNote } from '../songs/schema'
 import { midiToColor, midiToFrenchName } from '../constants/notes'
 import type { AccordionSystem } from '../constants/layouts'
 import { getLayout } from '../constants/layouts'
 
+/**
+ * Props for the FallingNotes component.
+ */
 type Props = {
+  /** The song being played */
   song: Song
-  currentBeat: number          // drives which notes are visible and where
+  /** The current position in the song (beats) */
+  currentBeat: number
+  /** The current accordion system ('C' or 'B') */
   system: AccordionSystem
-  showNoteNames: boolean        // progressive display: false = color only, true = color+name
-  onNoteAtLine: (note: SongNote) => void  // fired when a note reaches the play line
+  /** Whether to always show note names on the rectangles */
+  showNoteNames: boolean
+  /** Callback fired when a note reaches the hit-line */
+  onNoteAtLine: (note: SongNote) => void
 }
 
 const CANVAS_HEIGHT = 280
@@ -22,6 +31,10 @@ const BEATS_VISIBLE = 4                 // how many beats ahead to show notes
 const NOTE_WIDTH = 28
 const NOTE_CORNER_RADIUS = 6
 
+/**
+ * Component that renders the Synthesia-style falling notes visualization.
+ * Uses a Canvas element for 60fps imperative animation.
+ */
 export default function FallingNotes({ song, currentBeat, system, showNoteNames, onNoteAtLine }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const layout = getLayout(system)
@@ -74,7 +87,7 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
       ctx.roundRect(x, noteY, NOTE_WIDTH, noteHeight, NOTE_CORNER_RADIUS)
       ctx.fill()
 
-      // Note name label (progressive: only when showNoteNames or 2 beats away)
+      // Note name label (progressive: only when showNoteNames or very close to play line)
       if (showNoteNames || beatsUntilNote < 2) {
         ctx.fillStyle = '#000'
         ctx.font = 'bold 9px system-ui'
@@ -95,7 +108,7 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
       ref={canvasRef}
       width={600}
       height={CANVAS_HEIGHT}
-      className="w-full rounded-lg bg-gray-900"
+      className="w-full rounded-xl bg-gray-950 border border-gray-800 shadow-inner"
       aria-label="Notes en défilement"
     />
   )

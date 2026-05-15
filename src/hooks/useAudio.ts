@@ -1,23 +1,42 @@
-// useAudio.ts — coordinates mic + pitch detection; Angular DeviceService + PitchService equivalent
-// This is a custom hook: in React, hooks are how you share stateful logic between components
-// (same role as @Injectable services in Angular, but scoped to the component tree)
+/**
+ * @file useAudio.ts
+ * @description Coordinates microphone access and pitch detection.
+ */
+
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { MicrophoneManager } from '../audio/MicrophoneManager'
 import { PitchDetector, type DetectedNote } from '../audio/PitchDetector'
 import type { AccordionSystem } from '../constants/layouts'
 import { NoteMapper, type MappedNote } from '../audio/NoteMapper'
 
+/**
+ * State exposed by the useAudio hook.
+ */
 type AudioState = {
+  /** Whether the microphone is currently listening */
   isListening: boolean
+  /** The currently detected MIDI note, mapped to accordion button */
   detectedNote: MappedNote | null
+  /** Current error message, if any */
   error: string | null
 }
 
+/**
+ * Return type for the useAudio hook.
+ */
 type UseAudioReturn = AudioState & {
+  /** Starts the microphone and detection pipeline */
   startListening: () => Promise<void>
+  /** Stops the microphone and detection pipeline */
   stopListening: () => void
 }
 
+/**
+ * Custom hook that encapsulates the audio processing pipeline.
+ * Coordinates MicManager, PitchDetector, and NoteMapper.
+ * @param system - The current accordion system (C or B).
+ * @returns Audio state and control functions.
+ */
 export function useAudio(system: AccordionSystem): UseAudioReturn {
   const [state, setState] = useState<AudioState>({
     isListening: false,
@@ -25,7 +44,7 @@ export function useAudio(system: AccordionSystem): UseAudioReturn {
     error: null,
   })
 
-  // useRef keeps instances stable across re-renders (Angular: private service properties)
+  // useRef keeps instances stable across re-renders (similar to private properties in Angular services)
   const micRef = useRef(new MicrophoneManager())
   const detectorRef = useRef(new PitchDetector())
   const mapperRef = useRef(new NoteMapper(system))

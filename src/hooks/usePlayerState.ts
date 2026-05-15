@@ -1,22 +1,43 @@
-// usePlayerState.ts — timing engine for song playback; Angular TimerService equivalent
-// Manages the BPM clock and current beat position using requestAnimationFrame
-// for smooth 60fps synchronization with the FallingNotes canvas.
+/**
+ * @file usePlayerState.ts
+ * @description Timing engine for song playback using requestAnimationFrame.
+ */
+
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Song } from '../songs/schema'
 
+/**
+ * State for the song player.
+ */
 type PlayerState = {
+  /** Whether the song is currently playing */
   isPlaying: boolean
+  /** The current position in the song (beats) */
   currentBeat: number
+  /** Multiplier for the song's BPM (0.5 to 1.2) */
   tempoMultiplier: number
+  /** Whether the song has reached the end */
   isFinished: boolean
 }
 
+/**
+ * Return type for the usePlayerState hook.
+ */
 type UsePlayerStateReturn = PlayerState & {
+  /** Starts or resumes song playback */
   play: () => void
+  /** Stops and resets playback */
   stop: () => void
+  /** Updates the tempo multiplier */
   setTempoMultiplier: (m: number) => void
 }
 
+/**
+ * Custom hook that manages the timing and playback state of a song.
+ * Uses requestAnimationFrame for precise synchronization with the Canvas renderer.
+ * @param song - The song to play.
+ * @returns Player state and control functions.
+ */
 export function usePlayerState(song: Song): UsePlayerStateReturn {
   const [state, setState] = useState<PlayerState>({
     isPlaying: false,

@@ -1,14 +1,31 @@
-// schema.ts — TypeScript types for song data; intentionally avoids music-theory terminology
-// midiNote is the universal currency: no key signatures, no time signatures, no clefs
+/**
+ * @file schema.ts
+ * @description TypeScript types for song data.
+ * Intentionally avoids music-theory terminology (solfège) to keep it simple.
+ */
+
+/**
+ * Represents a single note within a song.
+ */
 export type SongNote = {
-  midiNote: number       // MIDI standard: 60 = Do4 (middle C), 69 = La4 (440 Hz)
-  startBeat: number      // position in song as beat count from 0 (e.g. 0, 0.5, 1, 1.5...)
-  durationBeats: number  // how long the note lasts in beats (0.5 = half beat, 1 = one beat)
+  /** MIDI standard note number: 60 = Do4 (middle C), 69 = La4 (440 Hz) */
+  midiNote: number
+  /** Position in the song, measured in beats from the start (0-based) */
+  startBeat: number
+  /** How long the note lasts, measured in beats (e.g., 0.5 = half beat, 1.0 = one beat) */
+  durationBeats: number
 }
 
+/**
+ * Represents a full song definition.
+ */
 export type Song = {
+  /** Unique identifier for the song */
   id: string
+  /** Human-readable title */
   title: string
-  bpm: number            // beats per minute — controls scroll speed of falling notes
+  /** Beats per minute — controls the scroll speed of falling notes */
+  bpm: number
+  /** Array of notes that make up the song */
   notes: SongNote[]
 }

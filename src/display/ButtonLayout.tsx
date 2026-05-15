@@ -1,14 +1,22 @@
-// ButtonLayout.tsx — SVG rendering of the accordion's right-hand button grid
-// Each circle = one button. Row 0 is farthest from player, Row 2 is closest.
-// Offset between rows mimics the real physical stagger on the instrument.
+/**
+ * @file ButtonLayout.tsx
+ * @description SVG rendering of the accordion's right-hand button grid.
+ */
+
 import type { MappedNote } from '../audio/NoteMapper'
 import { ROW_COUNT, COL_COUNT } from '../constants/layouts'
 import { midiToFrenchName } from '../constants/notes'
 import { getLayout, type AccordionSystem } from '../constants/layouts'
 
+/**
+ * Props for the ButtonLayout component.
+ */
 type Props = {
+  /** The current accordion system ('C' or 'B') */
   system: AccordionSystem
+  /** The position of the button to highlight (active note) */
   activeButtonPosition: MappedNote | null
+  /** Callback fired when the user toggles the system */
   onSystemChange: (system: AccordionSystem) => void
 }
 
@@ -21,6 +29,10 @@ const PADDING = 24
 const SVG_WIDTH = PADDING * 2 + (COL_COUNT - 1) * H_GAP + ROW_OFFSET * 2
 const SVG_HEIGHT = PADDING * 2 + (ROW_COUNT - 1) * V_GAP + BTN_RADIUS * 2
 
+/**
+ * Component that renders the accordion button layout as an interactive SVG.
+ * High-performance, resolution-independent, and easily animatable.
+ */
 export default function ButtonLayout({ system, activeButtonPosition, onSystemChange }: Props) {
   const layout = getLayout(system)
 
@@ -39,7 +51,7 @@ export default function ButtonLayout({ system, activeButtonPosition, onSystemCha
           <button
             key={s}
             onClick={() => onSystemChange(s)}
-            className={`px-2 py-0.5 rounded ${system === s ? 'bg-amber-500 text-black font-bold' : 'bg-gray-700 text-gray-300'}`}
+            className={`px-2 py-0.5 rounded transition-colors ${system === s ? 'bg-amber-500 text-black font-bold' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
           >
             {s}-system
           </button>
@@ -51,7 +63,7 @@ export default function ButtonLayout({ system, activeButtonPosition, onSystemCha
         width={SVG_WIDTH}
         height={SVG_HEIGHT}
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        className="max-w-full"
+        className="max-w-full drop-shadow-lg"
         aria-label="Clavier accordéon main droite"
       >
         {rows.map(row => (
@@ -74,8 +86,9 @@ export default function ButtonLayout({ system, activeButtonPosition, onSystemCha
                     cy={cy}
                     r={BTN_RADIUS}
                     fill={color}
-                    stroke={isActive ? '#fff' : '#6B7280'}
+                    stroke={isActive ? '#fff' : '#4B5563'}
                     strokeWidth={isActive ? 2 : 1}
+                    className="transition-all duration-100"
                     data-active={isActive ? 'true' : undefined}
                   />
                   <text
@@ -86,7 +99,7 @@ export default function ButtonLayout({ system, activeButtonPosition, onSystemCha
                     fontSize={9}
                     fill={labelColor}
                     fontWeight={isActive ? 'bold' : 'normal'}
-                    style={{ userSelect: 'none', pointerEvents: 'none' }}
+                    className="pointer-events-none select-none transition-colors duration-100"
                   >
                     {midiToFrenchName(midi)}
                   </text>

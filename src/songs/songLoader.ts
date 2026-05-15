@@ -1,5 +1,8 @@
-// songLoader.ts — imports and validates all song JSON files at build time
-// Using static imports (not dynamic) so Vite can bundle them without a server
+/**
+ * @file songLoader.ts
+ * @description Build-time import and validation of song library JSON files.
+ */
+
 import type { Song } from './schema'
 import auClairDeLaLune from './library/au-clair-de-la-lune.json'
 import frereJacques from './library/frere-jacques.json'
@@ -9,6 +12,12 @@ import laMarseillaise from './library/la-marseillaise.json'
 import laBambaIntro from './library/la-bamba-intro.json'
 import valseMusette from './library/valse-musette.json'
 
+/**
+ * Validates a raw object against the Song schema.
+ * @throws Error if the data is invalid.
+ * @param data - The raw JSON data.
+ * @returns The validated Song object.
+ */
 function assertSong(data: unknown): Song {
   const s = data as Song
   if (!s.id || !s.title || !s.bpm || !Array.isArray(s.notes)) {
@@ -17,6 +26,9 @@ function assertSong(data: unknown): Song {
   return s
 }
 
+/**
+ * The complete collection of available songs.
+ */
 export const SONGS: Song[] = [
   assertSong(auClairDeLaLune),
   assertSong(frereJacques),
@@ -27,6 +39,11 @@ export const SONGS: Song[] = [
   assertSong(valseMusette),
 ]
 
+/**
+ * Finds a song by its unique ID.
+ * @param id - The song ID to search for.
+ * @returns The Song object if found, otherwise undefined.
+ */
 export function getSongById(id: string): Song | undefined {
   return SONGS.find(s => s.id === id)
 }
