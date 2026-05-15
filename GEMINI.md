@@ -37,8 +37,18 @@ Vite 6 · React 19 · TypeScript 5 · Tailwind CSS 4 · pitchy · Web Audio API 
 ## Commands
 
 ```bash
-npm run dev      # dev server http://localhost:5173
+npm run dev      # dev server https://localhost:5173
 npm run build    # production build
 npm test         # watch mode
 npm test -- --run  # CI mode (run once)
 ```
+
+## Local HTTPS (SSL)
+
+The project is configured to use HTTPS in development for better alignment with browser APIs (like Web Audio).
+To set it up:
+
+1. Install [mkcert](https://github.com/FiloSottile/mkcert).
+2. Run `mkcert -install` (once per machine).
+3. In the project root, run: `mkcert localhost`.
+4. Vite will automatically detect `localhost.pem` and `localhost-key.pem` and start in HTTPS mode.
