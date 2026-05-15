@@ -1,0 +1,18 @@
+{
+  "id": "la-bamba-intro",
+  "title": "La Bamba (Intro)",
+  "bpm": 120,
+  "notes": [
+    { "midiNote": 60, "startBeat": 0, "durationBeats": 0.5 },
+    { "midiNote": 62, "startBeat": 0.5, "durationBeats": 0.5 },
+    { "midiNote": 64, "startBeat": 1, "durationBeats": 0.5 },
+    { "midiNote": 65, "startBeat": 1.5, "durationBeats": 0.5 },
+    { "midiNote": 67, "startBeat": 2, "durationBeats": 1 },
+    { "midiNote": 65, "startBeat": 3, "durationBeats": 1 },
+    { "midiNote": 64, "startBeat": 4, "durationBeats": 0.5 },
+    { "midiNote": 62, "startBeat": 4.5, "durationBeats": 0.5 },
+    { "midiNote": 64, "startBeat": 5, "durationBeats": 0.5 },
+    { "midiNote": 62, "startBeat": 5.5, "durationBeats": 0.5 },
+    { "midiNote": 60, "startBeat": 6, "durationBeats": 1 }
+  ]
+}

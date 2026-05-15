@@ -3,6 +3,11 @@
 import type { Song } from './schema'
 import auClairDeLaLune from './library/au-clair-de-la-lune.json'
 import frereJacques from './library/frere-jacques.json'
+import joyeuxAnniversaire from './library/joyeux-anniversaire.json'
+import douceNuit from './library/douce-nuit.json'
+import laMarseillaise from './library/la-marseillaise.json'
+import laBambaIntro from './library/la-bamba-intro.json'
+import valseMusette from './library/valse-musette.json'
 
 function assertSong(data: unknown): Song {
   const s = data as Song
@@ -15,6 +20,11 @@ function assertSong(data: unknown): Song {
 export const SONGS: Song[] = [
   assertSong(auClairDeLaLune),
   assertSong(frereJacques),
+  assertSong(joyeuxAnniversaire),
+  assertSong(douceNuit),
+  assertSong(laMarseillaise),
+  assertSong(laBambaIntro),
+  assertSong(valseMusette),
 ]
 
 export function getSongById(id: string): Song | undefined {
