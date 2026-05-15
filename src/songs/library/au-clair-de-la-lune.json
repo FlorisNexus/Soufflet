@@ -1,0 +1,18 @@
+{
+  "id": "au-clair-de-la-lune",
+  "title": "Au Clair de la Lune",
+  "bpm": 80,
+  "notes": [
+    { "midiNote": 60, "startBeat": 0, "durationBeats": 1 },
+    { "midiNote": 60, "startBeat": 1, "durationBeats": 1 },
+    { "midiNote": 60, "startBeat": 2, "durationBeats": 1 },
+    { "midiNote": 62, "startBeat": 3, "durationBeats": 1 },
+    { "midiNote": 64, "startBeat": 4, "durationBeats": 2 },
+    { "midiNote": 62, "startBeat": 6, "durationBeats": 2 },
+    { "midiNote": 60, "startBeat": 8, "durationBeats": 1 },
+    { "midiNote": 64, "startBeat": 9, "durationBeats": 1 },
+    { "midiNote": 62, "startBeat": 10, "durationBeats": 1 },
+    { "midiNote": 62, "startBeat": 11, "durationBeats": 1 },
+    { "midiNote": 60, "startBeat": 12, "durationBeats": 4 }
+  ]
+}
