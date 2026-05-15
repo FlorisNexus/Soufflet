@@ -25,11 +25,11 @@ type Props = {
   onNoteAtLine: (note: SongNote) => void
 }
 
-const CANVAS_HEIGHT = 280
-const PLAY_LINE_Y = CANVAS_HEIGHT - 40  // px from top where player must press
-const BEATS_VISIBLE = 4                 // how many beats ahead to show notes
-const NOTE_WIDTH = 28
-const NOTE_CORNER_RADIUS = 6
+const CANVAS_HEIGHT = 400 // Plus haut
+const PLAY_LINE_Y = CANVAS_HEIGHT - 60  // Plus d'espace en bas
+const BEATS_VISIBLE = 5                 // Plus de visibilité anticipée
+const NOTE_WIDTH = 40                   // Plus large pour correspondre aux nouveaux boutons
+const NOTE_CORNER_RADIUS = 10
 
 /**
  * Component that renders the Synthesia-style falling notes visualization.
@@ -40,9 +40,9 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
   const layout = getLayout(system)
 
   // Build col → x-position mapping (mirrors ButtonLayout.tsx spacing)
-  const H_GAP = 36
-  const ROW_OFFSET = 18
-  const PADDING = 24
+  const H_GAP = 52      // Aligné sur ButtonLayout
+  const ROW_OFFSET = 26 // Aligné sur ButtonLayout
+  const PADDING = 30    // Aligné sur ButtonLayout
 
   function colToX(col: number, row: number): number {
     return PADDING + col * H_GAP + (3 - 1 - row) * ROW_OFFSET
@@ -54,17 +54,38 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    ctx.clearRect(0, 0, canvas.width, CANVAS_HEIGHT)
+    // On ajuste la largeur du canvas dynamiquement pour remplir le parent
+    const dpr = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = rect.width * dpr
+    canvas.height = CANVAS_HEIGHT * dpr
+    ctx.scale(dpr, dpr)
 
-    // Draw play line
-    ctx.strokeStyle = '#F59E0B'  // amber-400
-    ctx.lineWidth = 2
-    ctx.setLineDash([6, 4])
+    ctx.clearRect(0, 0, rect.width, CANVAS_HEIGHT)
+
+    // Draw grid lines for columns (background)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
+    ctx.lineWidth = 1
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 21; col++) {
+        const x = colToX(col, row)
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, CANVAS_HEIGHT)
+        ctx.stroke()
+      }
+    }
+
+    // Draw play line (neon style)
+    ctx.shadowBlur = 10
+    ctx.shadowColor = '#F59E0B'
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)'
+    ctx.lineWidth = 3
     ctx.beginPath()
     ctx.moveTo(0, PLAY_LINE_Y)
-    ctx.lineTo(canvas.width, PLAY_LINE_Y)
+    ctx.lineTo(rect.width, PLAY_LINE_Y)
     ctx.stroke()
-    ctx.setLineDash([])
+    ctx.shadowBlur = 0 // Reset shadow
 
     // Draw each visible note rectangle
     song.notes.forEach(note => {
@@ -77,20 +98,37 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
       // y: 0 = top (far future), PLAY_LINE_Y = now
       const yProgress = 1 - beatsUntilNote / BEATS_VISIBLE
       const noteY = yProgress * PLAY_LINE_Y - (note.durationBeats / BEATS_VISIBLE) * PLAY_LINE_Y
-      const noteHeight = Math.max(12, (note.durationBeats / BEATS_VISIBLE) * PLAY_LINE_Y)
+      const noteHeight = Math.max(20, (note.durationBeats / BEATS_VISIBLE) * PLAY_LINE_Y)
       const x = colToX(pos.col, pos.row) - NOTE_WIDTH / 2
 
-      // Draw rounded rectangle
+      // Gradient color
       const color = midiToColor(note.midiNote)
-      ctx.fillStyle = color
+      const gradient = ctx.createLinearGradient(x, noteY, x, noteY + noteHeight)
+      gradient.addColorStop(0, color)
+      gradient.addColorStop(1, color + 'CC') // semi-transparent bottom
+
+      // Draw rounded rectangle with glow if close
+      if (Math.abs(beatsUntilNote) < 0.2) {
+        ctx.shadowBlur = 15
+        ctx.shadowColor = color
+      }
+      
+      ctx.fillStyle = gradient
       ctx.beginPath()
       ctx.roundRect(x, noteY, NOTE_WIDTH, noteHeight, NOTE_CORNER_RADIUS)
       ctx.fill()
+      
+      // Border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+      
+      ctx.shadowBlur = 0
 
-      // Note name label (progressive: only when showNoteNames or very close to play line)
-      if (showNoteNames || beatsUntilNote < 2) {
+      // Note name label
+      if (showNoteNames || beatsUntilNote < 1.5) {
         ctx.fillStyle = '#000'
-        ctx.font = 'bold 9px system-ui'
+        ctx.font = 'bold 12px system-ui'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(midiToFrenchName(note.midiNote), x + NOTE_WIDTH / 2, noteY + noteHeight / 2)
@@ -106,9 +144,7 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
   return (
     <canvas
       ref={canvasRef}
-      width={600}
-      height={CANVAS_HEIGHT}
-      className="w-full rounded-xl bg-gray-950 border border-gray-800 shadow-inner"
+      className="w-full h-[400px] bg-gray-950/50"
       aria-label="Notes en défilement"
     />
   )

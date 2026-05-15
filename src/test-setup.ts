@@ -13,4 +13,18 @@ HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
   roundRect: vi.fn(),
   fillText: vi.fn(),
   setLineDash: vi.fn(),
+  scale: vi.fn(),
+  createLinearGradient: vi.fn().mockReturnValue({
+    addColorStop: vi.fn(),
+  }),
 }) as any
+
+// Mock getBoundingClientRect for Canvas
+HTMLCanvasElement.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
+  width: 600,
+  height: 400,
+  top: 0,
+  left: 0,
+  bottom: 400,
+  right: 600,
+})

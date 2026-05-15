@@ -37,6 +37,7 @@ export default function Player({ song, onBack }: Props) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<EvaluationResult>(null)
   const [showNoteNames, setShowNoteNames] = useState(false)
+  const [targetNote, setTargetNote] = useState<SongNote | null>(null)
   
   // Tracking stats for the current session
   const totalNotesRef = useRef(0)
@@ -54,6 +55,7 @@ export default function Player({ song, onBack }: Props) {
     setCountdown(3)
     totalNotesRef.current = 0
     correctNotesRef.current = 0
+    setTargetNote(null)
     await startListening()
     let count = 3
     const interval = setInterval(() => {
@@ -76,13 +78,16 @@ export default function Player({ song, onBack }: Props) {
     stopListening()
     setCountdown(null)
     setFeedback(null)
+    setTargetNote(null)
   }, [stop, stopListening])
 
   /**
    * Evaluates the detected microphone input against the expected song note.
    */
   const handleNoteAtLine = useCallback((note: SongNote) => {
+    setTargetNote(note)
     totalNotesRef.current += 1
+    
     if (!detectedNote) {
       setFeedback({ result: 'wrong', expectedName: '...' })
     } else {
@@ -96,7 +101,10 @@ export default function Player({ song, onBack }: Props) {
     }
 
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
-    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 600)
+    feedbackTimerRef.current = setTimeout(() => {
+      setFeedback(null)
+      // On garde le targetNote jusqu'à la prochaine note pour que l'utilisateur voit ce qu'il doit jouer
+    }, 600)
   }, [detectedNote])
 
   /**
@@ -121,29 +129,55 @@ export default function Player({ song, onBack }: Props) {
   }, [handleStop])
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col p-4 gap-4 max-w-2xl mx-auto overflow-hidden">
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col max-w-4xl mx-auto overflow-hidden shadow-2xl border-x border-gray-900">
       {/* Header */}
-      <div className="flex items-center gap-4 py-2">
-        <button onClick={() => { handleStop(); onBack() }} className="text-gray-400 hover:text-white text-3xl transition-colors">←</button>
-        <h1 className="text-xl font-bold flex-1 truncate">{song.title}</h1>
-        <div className="flex items-center gap-3 bg-gray-800 px-3 py-1.5 rounded-full text-sm">
-          <button onClick={() => setTempoMultiplier(Math.max(0.5, tempoMultiplier - 0.1))} className="hover:text-amber-400 transition-colors">−</button>
-          <span className="font-mono">{Math.round(tempoMultiplier * 100)}%</span>
-          <button onClick={() => setTempoMultiplier(Math.min(1.2, tempoMultiplier + 0.1))} className="hover:text-amber-400 transition-colors">+</button>
+      <header className="flex items-center gap-6 px-6 py-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 sticky top-0 z-40">
+        <button 
+          onClick={() => { handleStop(); onBack() }} 
+          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all active:scale-90"
+        >
+          <span className="text-2xl">←</span>
+        </button>
+        
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-black truncate tracking-tight">{song.title}</h1>
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-0.5">Session en cours</p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+
+        <div className="hidden sm:flex items-center gap-4 bg-black/30 px-4 py-2 rounded-2xl border border-white/5">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] text-gray-500 font-black uppercase tracking-tighter">Précision</span>
+            <span className="text-sm font-mono font-bold text-amber-500">
+              {totalNotesRef.current > 0 ? Math.round((correctNotesRef.current / totalNotesRef.current) * 100) : 0}%
+            </span>
+          </div>
+          <div className="w-px h-6 bg-gray-800" />
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setTempoMultiplier(Math.max(0.5, tempoMultiplier - 0.1))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            >−</button>
+            <span className="font-mono text-sm w-10 text-center">{Math.round(tempoMultiplier * 100)}%</span>
+            <button 
+              onClick={() => setTempoMultiplier(Math.min(1.2, tempoMultiplier + 0.1))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
+            >+</button>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-xs font-bold text-gray-400 cursor-pointer select-none px-3 py-2 rounded-xl hover:bg-gray-800 transition-colors">
           <input 
             type="checkbox" 
             checked={showNoteNames} 
             onChange={e => setShowNoteNames(e.target.checked)}
-            className="accent-amber-500"
+            className="w-4 h-4 accent-amber-500 rounded border-gray-700 bg-gray-800"
           />
-          Noms
+          LABELS
         </label>
-      </div>
+      </header>
 
       {/* Falling notes zone */}
-      <div className="flex-1 relative min-h-[200px]">
+      <main className="flex-1 relative bg-black overflow-hidden flex flex-col">
         <FallingNotes
           song={song}
           currentBeat={currentBeat}
@@ -151,44 +185,53 @@ export default function Player({ song, onBack }: Props) {
           showNoteNames={showNoteNames}
           onNoteAtLine={handleNoteAtLine}
         />
-      </div>
+        <FeedbackOverlay result={feedback?.result ?? null} expectedName={feedback?.expectedName} />
+      </main>
 
-      {/* Accordion button layout + feedback overlay */}
-      <div className="relative py-4">
+      {/* Accordion button layout */}
+      <footer className="bg-gray-900/90 backdrop-blur-xl border-t border-white/5 py-8 px-4 relative z-10">
         <ButtonLayout
           system={system}
           activeButtonPosition={isListening ? detectedNote : null}
           onSystemChange={setSystem}
+          targetMidiNote={targetNote?.midiNote}
         />
-        <FeedbackOverlay result={feedback?.result ?? null} expectedName={feedback?.expectedName} />
-      </div>
+      </footer>
 
       {/* Countdown overlay */}
       {countdown !== null && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-          <span className="text-9xl font-black text-amber-400 animate-ping">{countdown}</span>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-xl">
+          <div className="relative">
+            <span className="text-[12rem] font-black text-amber-500 animate-ping absolute inset-0 flex items-center justify-center opacity-20">{countdown}</span>
+            <span className="text-[12rem] font-black text-white relative z-10">{countdown}</span>
+          </div>
         </div>
       )}
 
       {/* Song finished screen */}
       {isFinished && (
-        <div className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 gap-8 backdrop-blur-md">
-          <div className="text-center">
-            <p className="text-6xl font-black text-amber-400 mb-2">Bravo !</p>
-            <p className="text-gray-400">Chanson terminée avec succès.</p>
+        <div className="fixed inset-0 bg-black/95 flex flex-col items-center justify-center z-50 gap-12 backdrop-blur-2xl p-6 text-center">
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <div className="text-8xl mb-6 scale-110">🎉</div>
+            <h2 className="text-7xl font-black text-white tracking-tighter mb-4">BRAVO !</h2>
+            <div className="h-1 w-24 bg-amber-500 mx-auto rounded-full mb-8" />
+            <p className="text-gray-400 text-xl max-w-xs mx-auto leading-relaxed">
+              Tu as terminé <span className="text-white font-bold">{song.title}</span> avec une précision de <span className="text-amber-500 font-black">{Math.round((correctNotesRef.current / totalNotesRef.current) * 100)}%</span>.
+            </p>
           </div>
-          <div className="flex gap-4">
+          
+          <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm animate-in fade-in zoom-in duration-1000 delay-300">
             <button 
               onClick={handleStart} 
-              className="bg-amber-500 hover:bg-amber-400 text-black px-10 py-4 rounded-2xl font-black text-lg transition-transform active:scale-95 shadow-lg shadow-amber-500/20"
+              className="flex-1 bg-amber-500 hover:bg-amber-400 text-black px-8 py-5 rounded-3xl font-black text-xl transition-all active:scale-95 shadow-2xl shadow-amber-500/30"
             >
-              REJOUER
+              REESSAYER
             </button>
             <button 
               onClick={() => { handleStop(); onBack() }} 
-              className="bg-gray-800 hover:bg-gray-700 text-white px-10 py-4 rounded-2xl font-bold text-lg transition-colors border border-gray-700"
+              className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-8 py-5 rounded-3xl font-bold text-xl transition-all border border-white/10 active:scale-95"
             >
-              RETOUR
+              QUITTER
             </button>
           </div>
         </div>
@@ -196,12 +239,14 @@ export default function Player({ song, onBack }: Props) {
 
       {/* Start / stop button */}
       {!isPlaying && !isFinished && countdown === null && (
-        <button
-          onClick={handleStart}
-          className="mt-auto bg-amber-500 hover:bg-amber-400 text-black font-black py-5 rounded-2xl text-2xl transition-all active:scale-95 shadow-xl shadow-amber-500/10 mb-2"
-        >
-          ▶  DÉMARRER
-        </button>
+        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent pointer-events-none z-30">
+          <button
+            onClick={handleStart}
+            className="w-full max-w-md mx-auto flex items-center justify-center gap-4 bg-amber-500 hover:bg-amber-400 text-black font-black py-6 rounded-3xl text-2xl transition-all active:scale-95 shadow-2xl shadow-amber-500/40 pointer-events-auto border-b-4 border-amber-700"
+          >
+            <span className="text-3xl">▶</span> DÉMARRER LA SESSION
+          </button>
+        </div>
       )}
     </div>
   )
