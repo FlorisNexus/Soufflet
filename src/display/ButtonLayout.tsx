@@ -18,7 +18,7 @@
 import {
   ROW_COUNT,
   COL_COUNT,
-  BUTTONS_PER_ROW_LAYOUT,
+  MAX_BUTTONS_PER_ROW,
   getAllButtons,
   getButtonsForMidi,
   type AccordionSystem,
@@ -36,16 +36,20 @@ type Props = {
 
 // ─── Vertical layout constants ───────────────────────────────────────────────
 const V_BTN = 17       // button radius
-const V_ROW_GAP = 46   // horizontal distance between row centres
+const V_ROW_GAP = 54   // horizontal distance between row centres (wider = less cramped)
 const V_COL_GAP = 34   // vertical distance between button centres
-const V_STAGGER = 17   // half of V_COL_GAP — offset for 18-btn rows
 const V_HPAD = 22      // horizontal padding
 const V_VPAD = 22      // vertical padding
 
-// Width: 5 rows, spaced by V_ROW_GAP.
+// No stagger: all rows align position N at the same y-coordinate.
+// Physically the 18-btn rows are offset by half a step on the instrument,
+// but aligning by position number is clearer for learning — "position 6" is
+// always at the same height regardless of the row.
+
+// Width: 5 rows spaced by V_ROW_GAP.
 const V_SVG_WIDTH = V_HPAD * 2 + V_BTN * 2 + (ROW_COUNT - 1) * V_ROW_GAP
-// Height: tallest column = 17 steps × V_COL_GAP + stagger for 18-btn rows.
-const V_SVG_HEIGHT = V_VPAD * 2 + V_BTN * 2 + 16 * V_COL_GAP + V_STAGGER
+// Height: tallest column = 18 buttons in rows 1 & 3 → 17 steps.
+const V_SVG_HEIGHT = V_VPAD * 2 + V_BTN * 2 + (MAX_BUTTONS_PER_ROW - 1) * V_COL_GAP
 
 // ─── Horizontal layout constants (Player mode, unchanged) ────────────────────
 const H_BTN = 18
@@ -85,10 +89,9 @@ export default function ButtonLayout({
 
   function getCy(row: number, col: number): number {
     if (isVertical) {
-      // 18-btn rows (rows 1 & 3) staggered down by half a step so their buttons
-      // sit between the adjacent 17-btn row's buttons — matches the physical stagger.
-      const stagger = BUTTONS_PER_ROW_LAYOUT[row] === 18 ? V_STAGGER : 0
-      return V_VPAD + V_BTN + stagger + col * V_COL_GAP
+      // All rows aligned by position number: position N of any row sits at
+      // the same y-coordinate, making it easy to scan horizontally for a note.
+      return V_VPAD + V_BTN + col * V_COL_GAP
     }
     return H_PAD + H_BTN + row * H_V_GAP
   }
