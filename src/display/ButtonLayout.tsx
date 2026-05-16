@@ -35,12 +35,12 @@ type Props = {
 }
 
 // ─── Vertical layout constants ───────────────────────────────────────────────
-const V_BTN = 14       // button radius
-const V_ROW_GAP = 38   // horizontal distance between row centres
-const V_COL_GAP = 28   // vertical distance between button centres
-const V_STAGGER = 14   // half of V_COL_GAP — offset for 18-btn rows
-const V_HPAD = 20      // horizontal padding
-const V_VPAD = 20      // vertical padding
+const V_BTN = 17       // button radius
+const V_ROW_GAP = 46   // horizontal distance between row centres
+const V_COL_GAP = 34   // vertical distance between button centres
+const V_STAGGER = 17   // half of V_COL_GAP — offset for 18-btn rows
+const V_HPAD = 22      // horizontal padding
+const V_VPAD = 22      // vertical padding
 
 // Width: 5 rows, spaced by V_ROW_GAP.
 const V_SVG_WIDTH = V_HPAD * 2 + V_BTN * 2 + (ROW_COUNT - 1) * V_ROW_GAP
@@ -73,7 +73,7 @@ export default function ButtonLayout({
   const svgWidth = isVertical ? V_SVG_WIDTH : H_SVG_WIDTH
   const svgHeight = isVertical ? V_SVG_HEIGHT : H_SVG_HEIGHT
   const btnRadius = isVertical ? V_BTN : H_BTN
-  const fontSize = isVertical ? 9 : 11
+  const fontSize = 11
 
   function getCx(row: number, col: number): number {
     if (isVertical) {
