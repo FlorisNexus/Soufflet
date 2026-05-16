@@ -19,6 +19,7 @@ import {
   ROW_COUNT,
   COL_COUNT,
   MAX_BUTTONS_PER_ROW,
+  BUTTONS_PER_ROW_LAYOUT,
   getAllButtons,
   getButtonsForMidi,
   type AccordionSystem,
@@ -35,21 +36,21 @@ type Props = {
 }
 
 // ─── Vertical layout constants ───────────────────────────────────────────────
-const V_BTN = 17       // button radius
-const V_ROW_GAP = 54   // horizontal distance between row centres (wider = less cramped)
-const V_COL_GAP = 34   // vertical distance between button centres
+const V_BTN = 19       // button radius
+const V_ROW_GAP = 60   // horizontal distance between row centres
+const V_COL_GAP = 36   // vertical distance between button centres
+// 18-button rows are physically staggered UP by half a step on the instrument.
+// This means Do (rangée 2, 18-btn) appears ABOVE Ré (rangée 3, 17-btn)
+// at the same position number — which matches the physical layout.
+const V_STAGGER = 18   // = V_COL_GAP / 2
 const V_HPAD = 22      // horizontal padding
-const V_VPAD = 22      // vertical padding
-
-// No stagger: all rows align position N at the same y-coordinate.
-// Physically the 18-btn rows are offset by half a step on the instrument,
-// but aligning by position number is clearer for learning — "position 6" is
-// always at the same height regardless of the row.
+const V_VPAD = 28      // vertical padding (extra top room for the upward-shifted rows)
 
 // Width: 5 rows spaced by V_ROW_GAP.
 const V_SVG_WIDTH = V_HPAD * 2 + V_BTN * 2 + (ROW_COUNT - 1) * V_ROW_GAP
-// Height: tallest column = 18 buttons in rows 1 & 3 → 17 steps.
-const V_SVG_HEIGHT = V_VPAD * 2 + V_BTN * 2 + (MAX_BUTTONS_PER_ROW - 1) * V_COL_GAP
+// Height: accounts for the upward stagger on 18-btn rows and 17 steps on the tallest column.
+// Tallest cy = V_VPAD + V_BTN + 17 * V_COL_GAP (18-btn row, shifted up, col 17 is tallest).
+const V_SVG_HEIGHT = 2 * (V_VPAD + V_BTN) + (MAX_BUTTONS_PER_ROW - 1) * V_COL_GAP - V_STAGGER
 
 // ─── Horizontal layout constants (Player mode, unchanged) ────────────────────
 const H_BTN = 18
@@ -89,9 +90,12 @@ export default function ButtonLayout({
 
   function getCy(row: number, col: number): number {
     if (isVertical) {
-      // All rows aligned by position number: position N of any row sits at
-      // the same y-coordinate, making it easy to scan horizontally for a note.
-      return V_VPAD + V_BTN + col * V_COL_GAP
+      // 18-btn rows (rows 1 & 3 = rangées 2 & 4) are shifted UP by V_STAGGER
+      // so their buttons physically interleave between the adjacent 17-btn rows.
+      // Result: Do (rangée 2 pos 6) appears ABOVE Ré (rangée 3 pos 6), matching
+      // the real instrument where rangée 2's pos 6 is higher than rangée 3's.
+      const shift = BUTTONS_PER_ROW_LAYOUT[row] === 18 ? -V_STAGGER : 0
+      return V_VPAD + V_BTN + shift + col * V_COL_GAP
     }
     return H_PAD + H_BTN + row * H_V_GAP
   }

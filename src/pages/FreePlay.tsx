@@ -271,7 +271,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
         <aside
           className="shrink-0 flex items-start justify-center overflow-y-auto border-l"
           style={{
-            width: '18rem',
+            width: '24rem',
             borderColor: 'rgba(255,255,255,0.06)',
             background: 'rgba(8,8,18,0.95)',
             padding: '1rem 0.75rem',
