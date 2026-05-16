@@ -122,68 +122,78 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
         </div>
       )}
 
-      {/* PianoRoll */}
-      <section className="bg-black border-b border-white/5 p-4">
-        <PianoRoll
-          timeline={timeline}
-          sessionStartedAt={sessionStartedAt}
-          height={140}
-          onBlockClick={playReference}
-        />
-      </section>
+      {/* Main content: two columns on desktop (left = roll+readout+controls, right = keyboard) */}
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
 
-      {/* Central readout */}
-      <section className="bg-gray-900 border-b border-white/5 px-6 py-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <div className="text-center">
-          <div className="text-5xl font-black tracking-tight">{readout.name}</div>
-          <div className="text-gray-400 text-sm font-mono mt-1">
-            {readout.hz} {readout.cents && <span className="text-amber-400 ml-2">{readout.cents}</span>}
-          </div>
+        {/* ── Left column ── */}
+        <div className="flex flex-col flex-1 min-w-0">
+
+          {/* PianoRoll */}
+          <section className="bg-black border-b border-white/5 p-4">
+            <PianoRoll
+              timeline={timeline}
+              sessionStartedAt={sessionStartedAt}
+              height={140}
+              onBlockClick={playReference}
+            />
+          </section>
+
+          {/* Central readout — fixed height so the keyboard column never shifts
+               when content transitions between "—" and "Do 4 — 261.6 Hz — +5¢". */}
+          <section className="bg-gray-900 border-b border-white/5 px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-4 h-28 shrink-0">
+            <div className="text-center">
+              <div className="text-5xl font-black tracking-tight leading-none">{readout.name}</div>
+              <div className="text-gray-400 text-sm font-mono mt-1 h-5">
+                {readout.hz}{readout.cents && <span className="text-amber-400 ml-2">{readout.cents}</span>}
+              </div>
+            </div>
+            <button
+              onClick={() => currentNote && playReference(currentNote.midi)}
+              disabled={!currentNote || !audioRefEnabled}
+              className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-black disabled:bg-gray-800 disabled:text-gray-600 transition-all active:scale-95"
+              title={audioRefEnabled ? 'Jouer la référence' : 'Active la référence audio dans le menu'}
+            >
+              ▶ Référence
+            </button>
+          </section>
+
+          {/* Footer controls */}
+          <footer className="bg-gray-950 px-6 py-4 flex gap-3 justify-center mt-auto">
+            {!isListening ? (
+              <button
+                onClick={start}
+                className="flex-1 max-w-xs bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
+              >
+                🎤 Démarrer
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={reset}
+                  className="flex-1 max-w-xs bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg transition-all active:scale-95"
+                >
+                  ↻ Réinitialiser
+                </button>
+                <button
+                  onClick={stop}
+                  className="flex-1 max-w-xs bg-red-500 hover:bg-red-400 text-white font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
+                >
+                  ⏸ Pause
+                </button>
+              </>
+            )}
+          </footer>
         </div>
-        <button
-          onClick={() => currentNote && playReference(currentNote.midi)}
-          disabled={!currentNote || !audioRefEnabled}
-          className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-black disabled:bg-gray-800 disabled:text-gray-600 transition-all active:scale-95"
-          title={audioRefEnabled ? 'Jouer la référence' : 'Active la référence audio dans le menu'}
-        >
-          ▶ Référence
-        </button>
-      </section>
 
-      {/* Keyboard */}
-      <section className="bg-gray-900/90 border-b border-white/5 py-6 px-4">
-        <ButtonLayout
-          system={system}
-          activeMidi={currentNote?.midi ?? null}
-        />
-      </section>
+        {/* ── Right column — vertical keyboard ── */}
+        <aside className="bg-gray-900/80 border-t md:border-t-0 md:border-l border-white/5 p-4 flex items-start justify-center overflow-y-auto">
+          <ButtonLayout
+            system={system}
+            activeMidi={currentNote?.midi ?? null}
+          />
+        </aside>
 
-      {/* Footer controls */}
-      <footer className="bg-gray-950 px-6 py-4 flex gap-3 justify-center">
-        {!isListening ? (
-          <button
-            onClick={start}
-            className="flex-1 max-w-xs bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
-          >
-            🎤 Démarrer
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={reset}
-              className="flex-1 max-w-xs bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg transition-all active:scale-95"
-            >
-              ↻ Réinitialiser
-            </button>
-            <button
-              onClick={stop}
-              className="flex-1 max-w-xs bg-red-500 hover:bg-red-400 text-white font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
-            >
-              ⏸ Pause
-            </button>
-          </>
-        )}
-      </footer>
+      </div>
     </div>
   )
 }

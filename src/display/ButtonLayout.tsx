@@ -2,19 +2,23 @@
  * @file ButtonLayout.tsx
  * @description 5-row SVG rendering of the accordion's right-hand button grid.
  *
- * WHY 5 rows: chromatic accordions physically have 5 rows. Rows 0–2 are
- * principal (each note appears once). Rows 3–4 duplicate rows 0–1 shifted by a
- * minor third, offering alternative fingerings. We highlight the principal
- * candidate with a filled circle and the duplicates with an outline, so the
- * user can learn where the same note is reachable.
+ * WHY two orientations: Free Play uses `vertical` (default) so the on-screen
+ * keyboard matches what the player sees when looking at their accordion —
+ * rangée 1 on the right, lowest pitch at the top. Player mode keeps
+ * `horizontal` because FallingNotes's x-coordinates are tuned to that layout
+ * and will be migrated in a future pass.
  *
- * The component takes `activeMidi` (not a position) because pitchy can't tell
- * which physical button was pressed — we light up every candidate.
+ * In `vertical` mode:
+ *   - X axis: rows (row 0 = Florian's rangée 1 = rightmost).
+ *   - Y axis: col within each row (col 0 = position 1 = lowest pitch = top).
+ *   - 18-button rows (rows 1 & 3) are staggered down by half a V_GAP so their
+ *     buttons interleave visually with the adjacent 17-button rows.
  */
 
 import {
   ROW_COUNT,
   COL_COUNT,
+  BUTTONS_PER_ROW_LAYOUT,
   getAllButtons,
   getButtonsForMidi,
   type AccordionSystem,
@@ -22,51 +26,90 @@ import {
 import { midiToColor, midiToFrenchName } from '../constants/notes'
 
 type Props = {
-  /** The accordion system, decided by calibration. */
   system: AccordionSystem
-  /** The MIDI note currently played (highlights all candidate buttons). */
   activeMidi: number | null
-  /** Optional: the MIDI note the song wants the user to play (Player mode). */
   targetMidiNote?: number | null
+  /** Display orientation. Default `vertical` (Free Play, first-person view).
+   *  Pass `horizontal` for Player mode (FallingNotes alignment). */
+  orientation?: 'vertical' | 'horizontal'
 }
 
-const BTN_RADIUS = 18
-const H_GAP = 48
-const V_GAP = 42
-const ROW_OFFSET = 22
-const PADDING = 28
+// ─── Vertical layout constants ───────────────────────────────────────────────
+const V_BTN = 14       // button radius
+const V_ROW_GAP = 38   // horizontal distance between row centres
+const V_COL_GAP = 28   // vertical distance between button centres
+const V_STAGGER = 14   // half of V_COL_GAP — offset for 18-btn rows
+const V_HPAD = 20      // horizontal padding
+const V_VPAD = 20      // vertical padding
 
-const SVG_WIDTH = PADDING * 2 + (COL_COUNT - 1) * H_GAP + ROW_OFFSET * (ROW_COUNT - 1)
-const SVG_HEIGHT = PADDING * 2 + (ROW_COUNT - 1) * V_GAP + BTN_RADIUS * 2
+// Width: 5 rows, spaced by V_ROW_GAP.
+const V_SVG_WIDTH = V_HPAD * 2 + V_BTN * 2 + (ROW_COUNT - 1) * V_ROW_GAP
+// Height: tallest column = 17 steps × V_COL_GAP + stagger for 18-btn rows.
+const V_SVG_HEIGHT = V_VPAD * 2 + V_BTN * 2 + 16 * V_COL_GAP + V_STAGGER
 
-export default function ButtonLayout({ system, activeMidi, targetMidiNote }: Props) {
+// ─── Horizontal layout constants (Player mode, unchanged) ────────────────────
+const H_BTN = 18
+const H_H_GAP = 48
+const H_V_GAP = 42
+const H_ROW_OFFSET = 22
+const H_PAD = 28
+
+const H_SVG_WIDTH = H_PAD * 2 + (COL_COUNT - 1) * H_H_GAP + H_ROW_OFFSET * (ROW_COUNT - 1)
+const H_SVG_HEIGHT = H_PAD * 2 + (ROW_COUNT - 1) * H_V_GAP + H_BTN * 2
+
+export default function ButtonLayout({
+  system,
+  activeMidi,
+  targetMidiNote,
+  orientation = 'vertical',
+}: Props) {
   const buttons = getAllButtons(system)
   const activePositions = activeMidi !== null ? getButtonsForMidi(system, activeMidi) : []
   const activeKeys = new Set(activePositions.map(b => `${b.row}-${b.col}`))
   const activeColor = activeMidi !== null ? midiToColor(activeMidi) : null
 
+  const isVertical = orientation === 'vertical'
+
+  const svgWidth = isVertical ? V_SVG_WIDTH : H_SVG_WIDTH
+  const svgHeight = isVertical ? V_SVG_HEIGHT : H_SVG_HEIGHT
+  const btnRadius = isVertical ? V_BTN : H_BTN
+  const fontSize = isVertical ? 9 : 11
+
+  function getCx(row: number, col: number): number {
+    if (isVertical) {
+      // Rangée 1 (row 0) on the right; rangée 5 (row 4) on the left.
+      return V_HPAD + V_BTN + (ROW_COUNT - 1 - row) * V_ROW_GAP
+    }
+    return H_PAD + col * H_H_GAP + (ROW_COUNT - 1 - row) * H_ROW_OFFSET
+  }
+
+  function getCy(row: number, col: number): number {
+    if (isVertical) {
+      // 18-btn rows (rows 1 & 3) staggered down by half a step so their buttons
+      // sit between the adjacent 17-btn row's buttons — matches the physical stagger.
+      const stagger = BUTTONS_PER_ROW_LAYOUT[row] === 18 ? V_STAGGER : 0
+      return V_VPAD + V_BTN + stagger + col * V_COL_GAP
+    }
+    return H_PAD + H_BTN + row * H_V_GAP
+  }
+
   return (
-    <div className="flex flex-col items-center gap-3 w-full">
-      <div className="w-full overflow-x-auto pb-2 hide-scrollbar flex justify-center">
+    <div className={isVertical ? 'flex items-start justify-center' : 'flex flex-col items-center gap-3 w-full'}>
+      <div className={isVertical ? 'overflow-y-auto' : 'w-full overflow-x-auto pb-2 hide-scrollbar flex justify-center'}>
         <svg
-          width={SVG_WIDTH}
-          height={SVG_HEIGHT}
-          viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+          width={svgWidth}
+          height={svgHeight}
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           className="drop-shadow-2xl"
           aria-label="Clavier accordéon main droite — 5 rangées"
         >
           {buttons.map(({ row, col, midi, isDuplicate }) => {
-            const cx = PADDING + col * H_GAP + (ROW_COUNT - 1 - row) * ROW_OFFSET
-            const cy = PADDING + BTN_RADIUS + row * V_GAP
+            const cx = getCx(row, col)
+            const cy = getCy(row, col)
 
             const isActive = activeKeys.has(`${row}-${col}`)
             const isTarget = targetMidiNote === midi
 
-            // Fill rules:
-            //  - active + principal → full color
-            //  - active + duplicate → transparent fill, color outline
-            //  - target (Player mode) → muted background with amber outline
-            //  - default → dark slate (duplicates dimmer than principals)
             let fill: string
             let stroke: string
             let strokeWidth: number
@@ -91,8 +134,6 @@ export default function ButtonLayout({ system, activeMidi, targetMidiNote }: Pro
               textColor = '#F59E0B'
               pulse = true
             } else if (isDuplicate) {
-              // Slightly dim the duplicates by default so the eye knows they are
-              // alternatives, not separate notes.
               fill = '#111827'
               stroke = '#1F2937'
               strokeWidth = 1
@@ -114,7 +155,7 @@ export default function ButtonLayout({ system, activeMidi, targetMidiNote }: Pro
                 <circle
                   cx={cx}
                   cy={cy}
-                  r={BTN_RADIUS}
+                  r={btnRadius}
                   fill={fill}
                   stroke={stroke}
                   strokeWidth={strokeWidth}
@@ -125,7 +166,7 @@ export default function ButtonLayout({ system, activeMidi, targetMidiNote }: Pro
                   y={cy + 1}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize={11}
+                  fontSize={fontSize}
                   fill={textColor}
                   fontWeight={isActive || isTarget ? 'bold' : 'medium'}
                   className="pointer-events-none select-none"

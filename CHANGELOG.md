@@ -38,6 +38,12 @@
 - New `docs/keyboard-layout.md` — exhaustive reference of Florian's keyboard with reference tables (all 87 buttons), chromatic-coverage proof, mechanical-duplicate explanation, a "play a C-major scale" example, and notes for adapting the app to a different accordion.
 - `README.md` rewritten to reflect the new Free Play mode, the corrected keyboard layout, the directory structure, and the calibration flow.
 
+### Keyboard orientation (vertical, first-person view)
+- `ButtonLayout` now defaults to `orientation="vertical"`: rows are vertical columns (rangée 1 = rightmost), positions run top-to-bottom (lowest pitch at top). The 18-button rows are staggered down by half a step to match the physical interleaving.
+- `Player.tsx` explicitly passes `orientation="horizontal"` to preserve FallingNotes alignment until that mode is redesigned.
+- `FreePlay.tsx` now uses a two-column desktop layout: left column (PianoRoll + readout + controls) + right column (vertical keyboard). Single-column on mobile with the keyboard below.
+- Fixed layout instability where the central readout changing from `—` to `Do 4` would shift the keyboard column — the readout section now has a fixed height (`h-28`).
+
 ### Notes
 - Spec: `30 Repos/conductor/plans/soufflet/soufflet-spec-freeplay-2026-05.md`.
 - Plan: `30 Repos/conductor/plans/soufflet/soufflet-plan-freeplay-2026-05.md`.

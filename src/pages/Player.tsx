@@ -196,6 +196,7 @@ export default function Player({ song, system, onBack }: Props) {
           system={system}
           activeMidi={isListening ? (detectedNote?.midiNote ?? null) : null}
           targetMidiNote={targetNote?.midiNote}
+          orientation="horizontal"
         />
       </footer>
 

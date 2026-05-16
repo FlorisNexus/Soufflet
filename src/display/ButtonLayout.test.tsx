@@ -3,7 +3,7 @@ import { render } from '@testing-library/react'
 import ButtonLayout from './ButtonLayout'
 
 describe('ButtonLayout', () => {
-  it('renders an SVG element', () => {
+  it('renders an SVG element (vertical by default)', () => {
     const { container } = render(<ButtonLayout system="C" activeMidi={null} />)
     expect(container.querySelector('svg')).not.toBeNull()
   })
@@ -32,5 +32,17 @@ describe('ButtonLayout', () => {
     const { container } = render(<ButtonLayout system="C" activeMidi={null} />)
     expect(container.querySelectorAll('[data-state="principal"]').length).toBe(0)
     expect(container.querySelectorAll('[data-state="duplicate"]').length).toBe(0)
+  })
+
+  it('vertical SVG is taller than wide', () => {
+    const { container } = render(<ButtonLayout system="C" activeMidi={null} orientation="vertical" />)
+    const svg = container.querySelector('svg')!
+    expect(Number(svg.getAttribute('height'))).toBeGreaterThan(Number(svg.getAttribute('width')))
+  })
+
+  it('horizontal SVG is wider than tall', () => {
+    const { container } = render(<ButtonLayout system="C" activeMidi={null} orientation="horizontal" />)
+    const svg = container.querySelector('svg')!
+    expect(Number(svg.getAttribute('width'))).toBeGreaterThan(Number(svg.getAttribute('height')))
   })
 })
