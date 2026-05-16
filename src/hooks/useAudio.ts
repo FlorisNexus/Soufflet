@@ -54,11 +54,15 @@ export function useAudio(system: AccordionSystem): UseAudioReturn {
     mapperRef.current.setSystem(system)
   }, [system])
 
-  // Cleanup on unmount — equivalent to ngOnDestroy
+  // Cleanup on unmount — equivalent to ngOnDestroy. We snapshot the refs
+  // inside the effect so the lint rule (refs may have changed by cleanup time)
+  // is satisfied.
   useEffect(() => {
+    const detector = detectorRef.current
+    const mic = micRef.current
     return () => {
-      detectorRef.current.stop()
-      micRef.current.stop()
+      detector.stop()
+      mic.stop()
     }
   }, [])
 

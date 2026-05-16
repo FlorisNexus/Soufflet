@@ -19,6 +19,8 @@ import { progressStore } from '../store/progressStore'
 type Props = {
   /** The song to play */
   song: Song
+  /** The accordion system, decided by calibration at boot. */
+  system: AccordionSystem
   /** Callback fired when the user wants to return to the home screen */
   onBack: () => void
 }
@@ -32,16 +34,16 @@ type EvaluationResult = { result: 'correct' | 'wrong'; expectedName: string } | 
  * Main game engine screen.
  * Coordinates the timing clock, microphone detection, and visual renderings.
  */
-export default function Player({ song, onBack }: Props) {
-  const [system, setSystem] = useState<AccordionSystem>('C')
+export default function Player({ song, system, onBack }: Props) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<EvaluationResult>(null)
   const [showNoteNames, setShowNoteNames] = useState(false)
   const [targetNote, setTargetNote] = useState<SongNote | null>(null)
-  
-  // Tracking stats for the current session
-  const totalNotesRef = useRef(0)
-  const correctNotesRef = useRef(0)
+
+  // Tracking stats for the current session. State (not refs) because the
+  // precision percentage is rendered in the header and the final score screen.
+  const [totalNotes, setTotalNotes] = useState(0)
+  const [correctNotes, setCorrectNotes] = useState(0)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { isListening, detectedNote, startListening, stopListening } = useAudio(system)
@@ -53,8 +55,8 @@ export default function Player({ song, onBack }: Props) {
    */
   const handleStart = useCallback(async () => {
     setCountdown(3)
-    totalNotesRef.current = 0
-    correctNotesRef.current = 0
+    setTotalNotes(0)
+    setCorrectNotes(0)
     setTargetNote(null)
     await startListening()
     let count = 3
@@ -86,14 +88,14 @@ export default function Player({ song, onBack }: Props) {
    */
   const handleNoteAtLine = useCallback((note: SongNote) => {
     setTargetNote(note)
-    totalNotesRef.current += 1
-    
+    setTotalNotes(n => n + 1)
+
     if (!detectedNote) {
       setFeedback({ result: 'wrong', expectedName: '...' })
     } else {
       const isCorrect = detectedNote.midiNote === note.midiNote
-      if (isCorrect) correctNotesRef.current += 1
-      
+      if (isCorrect) setCorrectNotes(n => n + 1)
+
       setFeedback({
         result: isCorrect ? 'correct' : 'wrong',
         expectedName: detectedNote.frenchName,
@@ -112,13 +114,13 @@ export default function Player({ song, onBack }: Props) {
    */
   useEffect(() => {
     if (isFinished) {
-      const score = totalNotesRef.current > 0 
-        ? Math.round((correctNotesRef.current / totalNotesRef.current) * 5)
+      const score = totalNotes > 0
+        ? Math.round((correctNotes / totalNotes) * 5)
         : 0
       progressStore.recordPlay(song.id, score)
       stopListening()
     }
-  }, [isFinished, song.id, stopListening])
+  }, [isFinished, song.id, stopListening, totalNotes, correctNotes])
 
   // Component cleanup
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function Player({ song, onBack }: Props) {
           <div className="flex flex-col items-center">
             <span className="text-[10px] text-gray-500 font-black uppercase tracking-tighter">Précision</span>
             <span className="text-sm font-mono font-bold text-amber-500">
-              {totalNotesRef.current > 0 ? Math.round((correctNotesRef.current / totalNotesRef.current) * 100) : 0}%
+              {totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 100) : 0}%
             </span>
           </div>
           <div className="w-px h-6 bg-gray-800" />
@@ -192,8 +194,7 @@ export default function Player({ song, onBack }: Props) {
       <footer className="bg-gray-900/90 backdrop-blur-xl border-t border-white/5 py-8 px-4 relative z-10">
         <ButtonLayout
           system={system}
-          activeButtonPosition={isListening ? detectedNote : null}
-          onSystemChange={setSystem}
+          activeMidi={isListening ? (detectedNote?.midiNote ?? null) : null}
           targetMidiNote={targetNote?.midiNote}
         />
       </footer>
@@ -216,7 +217,7 @@ export default function Player({ song, onBack }: Props) {
             <h2 className="text-7xl font-black text-white tracking-tighter mb-4">BRAVO !</h2>
             <div className="h-1 w-24 bg-amber-500 mx-auto rounded-full mb-8" />
             <p className="text-gray-400 text-xl max-w-xs mx-auto leading-relaxed">
-              Tu as terminé <span className="text-white font-bold">{song.title}</span> avec une précision de <span className="text-amber-500 font-black">{Math.round((correctNotesRef.current / totalNotesRef.current) * 100)}%</span>.
+              Tu as terminé <span className="text-white font-bold">{song.title}</span> avec une précision de <span className="text-amber-500 font-black">{totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 100) : 0}%</span>.
             </p>
           </div>
           

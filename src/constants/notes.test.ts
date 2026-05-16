@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { midiToFrenchName, midiToColor, midiToOctave, frequencyToMidi } from './notes'
+import {
+  midiToFrenchName,
+  midiToColor,
+  midiToOctave,
+  frequencyToMidi,
+  equalTempHz,
+  centsFromHz,
+  midiToFrenchNameWithOctave,
+} from './notes'
 import { getLayout, C_SYSTEM_LAYOUT } from './layouts'
 
 describe('midiToFrenchName', () => {
@@ -30,6 +38,33 @@ describe('frequencyToMidi', () => {
   it('La4 = 440 Hz → MIDI 69', () => expect(frequencyToMidi(440)).toBe(69))
   it('La5 = 880 Hz → MIDI 81', () => expect(frequencyToMidi(880)).toBe(81))
   it('Do4 ≈ 261.63 Hz → MIDI 60', () => expect(frequencyToMidi(261.63)).toBe(60))
+})
+
+describe('equalTempHz', () => {
+  it('A4 (69) = 440 Hz', () => expect(equalTempHz(69)).toBeCloseTo(440, 6))
+  it('A5 (81) = 880 Hz', () => expect(equalTempHz(81)).toBeCloseTo(880, 6))
+  it('Do4 (60) ≈ 261.6256 Hz', () => expect(equalTempHz(60)).toBeCloseTo(261.6256, 3))
+})
+
+describe('centsFromHz', () => {
+  it('exact equal-temperament frequency returns 0 cents', () => {
+    expect(centsFromHz(440, 69)).toBeCloseTo(0, 6)
+  })
+  it('one semitone above target returns +100 cents', () => {
+    expect(centsFromHz(equalTempHz(70), 69)).toBeCloseTo(100, 4)
+  })
+  it('one semitone below target returns -100 cents', () => {
+    expect(centsFromHz(equalTempHz(68), 69)).toBeCloseTo(-100, 4)
+  })
+  it('handles zero/negative input gracefully', () => {
+    expect(centsFromHz(0, 60)).toBe(0)
+    expect(centsFromHz(-1, 60)).toBe(0)
+  })
+})
+
+describe('midiToFrenchNameWithOctave', () => {
+  it('formats Do4', () => expect(midiToFrenchNameWithOctave(60)).toBe('Do 4'))
+  it('formats Sol#5', () => expect(midiToFrenchNameWithOctave(80)).toBe('Sol# 5'))
 })
 
 describe('C-system layout', () => {

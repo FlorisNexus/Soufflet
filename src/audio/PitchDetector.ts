@@ -51,7 +51,6 @@ export class PitchDetector {
   ): void {
     this.onDetect = onDetect
 
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     this.processorNode = context.createScriptProcessor(this.bufferSize, 1, 1)
     this.processorNode.onaudioprocess = (event) => {
       const buffer = event.inputBuffer.getChannelData(0)

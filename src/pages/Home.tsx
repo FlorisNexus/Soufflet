@@ -14,6 +14,10 @@ import type { Song } from '../songs/schema'
 type Props = {
   /** Callback fired when a song is selected for playback */
   onPlay: (song: Song) => void
+  /** Callback fired when the user wants to enter Free Play mode */
+  onFreePlay: () => void
+  /** Callback fired when the user wants to clear the stored calibration */
+  onRecalibrate: () => void
 }
 
 /**
@@ -35,7 +39,7 @@ function StarRating({ stars }: { stars: number }) {
  * Main entrance screen for the application.
  * Displays a grid of song cards with their titles, BPMs, and user progress.
  */
-export default function Home({ onPlay }: Props) {
+export default function Home({ onPlay, onFreePlay, onRecalibrate }: Props) {
   // forceRender used to refresh progress indicators after returning from player
   const [, forceRender] = useState(0)
 
@@ -54,6 +58,25 @@ export default function Home({ onPlay }: Props) {
             Apprends l'accordéon chromatique <span className="text-amber-500">sans solfège</span>, par l'écoute et le jeu.
           </p>
         </header>
+
+        {/* Free Play entry */}
+        <button
+          onClick={onFreePlay}
+          className="w-full mb-8 group relative bg-gradient-to-br from-amber-500/20 to-amber-600/10 hover:from-amber-500/30 hover:to-amber-600/20 rounded-[2.5rem] p-6 text-left border border-amber-500/30 hover:border-amber-500/60 transition-all active:scale-[0.99] shadow-xl"
+        >
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center text-3xl shadow-lg shadow-amber-500/30 group-hover:scale-110 transition-transform">
+              🎤
+            </div>
+            <div className="flex-1">
+              <h3 className="font-black text-2xl mb-1 text-amber-300">Mode libre</h3>
+              <p className="text-gray-400 text-sm">
+                Joue ce que tu veux — l'app te dit la note et où elle se trouve sur le clavier.
+              </p>
+            </div>
+            <span className="text-3xl text-amber-400">→</span>
+          </div>
+        </button>
 
         {/* Song Library Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -111,6 +134,15 @@ export default function Home({ onPlay }: Props) {
         <footer className="mt-20 text-center text-gray-600 font-bold text-sm tracking-widest uppercase">
           FlorisNexus &copy; 2026 — Chromatic Button Accordion Trainer
         </footer>
+
+        <div className="text-center mt-4">
+          <button
+            onClick={onRecalibrate}
+            className="text-xs text-gray-600 hover:text-amber-400 uppercase tracking-widest font-bold transition-colors"
+          >
+            ⚙ Recalibrer le clavier
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -1,119 +1,140 @@
 /**
  * @file ButtonLayout.tsx
- * @description SVG rendering of the accordion's right-hand button grid.
+ * @description 5-row SVG rendering of the accordion's right-hand button grid.
+ *
+ * WHY 5 rows: chromatic accordions physically have 5 rows. Rows 0–2 are
+ * principal (each note appears once). Rows 3–4 duplicate rows 0–1 shifted by a
+ * minor third, offering alternative fingerings. We highlight the principal
+ * candidate with a filled circle and the duplicates with an outline, so the
+ * user can learn where the same note is reachable.
+ *
+ * The component takes `activeMidi` (not a position) because pitchy can't tell
+ * which physical button was pressed — we light up every candidate.
  */
 
-import type { MappedNote } from '../audio/NoteMapper'
-import { ROW_COUNT, COL_COUNT } from '../constants/layouts'
-import { midiToFrenchName } from '../constants/notes'
-import { getLayout, type AccordionSystem } from '../constants/layouts'
+import {
+  ROW_COUNT,
+  COL_COUNT,
+  getAllButtons,
+  getButtonsForMidi,
+  type AccordionSystem,
+} from '../constants/layouts'
+import { midiToColor, midiToFrenchName } from '../constants/notes'
 
-/**
- * Props for the ButtonLayout component.
- */
 type Props = {
-  /** The current accordion system ('C' or 'B') */
+  /** The accordion system, decided by calibration. */
   system: AccordionSystem
-  /** The position of the button to highlight (active note) */
-  activeButtonPosition: MappedNote | null
-  /** Callback fired when the user toggles the system */
-  onSystemChange: (system: AccordionSystem) => void
-  /** The MIDI note currently expected by the song (target) */
+  /** The MIDI note currently played (highlights all candidate buttons). */
+  activeMidi: number | null
+  /** Optional: the MIDI note the song wants the user to play (Player mode). */
   targetMidiNote?: number | null
 }
 
-const BTN_RADIUS = 20 // Agrandissement (était 14)
-const H_GAP = 52      // Agrandissement (était 36)
-const V_GAP = 46      // Agrandissement (était 32)
-const ROW_OFFSET = 26 // Agrandissement (était 18)
-const PADDING = 30
+const BTN_RADIUS = 18
+const H_GAP = 48
+const V_GAP = 42
+const ROW_OFFSET = 22
+const PADDING = 28
 
-const SVG_WIDTH = PADDING * 2 + (COL_COUNT - 1) * H_GAP + ROW_OFFSET * 2
+const SVG_WIDTH = PADDING * 2 + (COL_COUNT - 1) * H_GAP + ROW_OFFSET * (ROW_COUNT - 1)
 const SVG_HEIGHT = PADDING * 2 + (ROW_COUNT - 1) * V_GAP + BTN_RADIUS * 2
 
-/**
- * Component that renders the accordion button layout as an interactive SVG.
- * High-performance, resolution-independent, and easily animatable.
- */
-export default function ButtonLayout({ system, activeButtonPosition, onSystemChange, targetMidiNote }: Props) {
-  const layout = getLayout(system)
-
-  // Build a reverse map: "row-col" → midiNote for label rendering
-  const posToMidi = new Map<string, number>()
-  layout.forEach((pos, midi) => posToMidi.set(`${pos.row}-${pos.col}`, midi))
-
-  const rows = Array.from({ length: ROW_COUNT }, (_, row) => row)
+export default function ButtonLayout({ system, activeMidi, targetMidiNote }: Props) {
+  const buttons = getAllButtons(system)
+  const activePositions = activeMidi !== null ? getButtonsForMidi(system, activeMidi) : []
+  const activeKeys = new Set(activePositions.map(b => `${b.row}-${b.col}`))
+  const activeColor = activeMidi !== null ? midiToColor(activeMidi) : null
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full">
-      {/* System toggle */}
-      <div className="flex items-center gap-3 text-sm font-medium bg-gray-800/50 p-1.5 rounded-xl border border-gray-700/50 backdrop-blur-sm">
-        <span className="text-gray-400 ml-2">Système :</span>
-        {(['C', 'B'] as AccordionSystem[]).map(s => (
-          <button
-            key={s}
-            onClick={() => onSystemChange(s)}
-            className={`px-4 py-1.5 rounded-lg transition-all ${system === s ? 'bg-amber-500 text-black font-bold shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-gray-200'}`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* Accordion button grid */}
-      <div className="w-full overflow-x-auto pb-4 hide-scrollbar flex justify-center">
+    <div className="flex flex-col items-center gap-3 w-full">
+      <div className="w-full overflow-x-auto pb-2 hide-scrollbar flex justify-center">
         <svg
           width={SVG_WIDTH}
           height={SVG_HEIGHT}
           viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-          className="drop-shadow-2xl filter"
-          aria-label="Clavier accordéon main droite"
+          className="drop-shadow-2xl"
+          aria-label="Clavier accordéon main droite — 5 rangées"
         >
-          {rows.map(row => (
-            <g key={row} data-testid={`button-row-${row}`}>
-              {Array.from({ length: COL_COUNT }, (_, col) => {
-                const midi = posToMidi.get(`${row}-${col}`)
-                if (midi === undefined) return null
+          {buttons.map(({ row, col, midi, isDuplicate }) => {
+            const cx = PADDING + col * H_GAP + (ROW_COUNT - 1 - row) * ROW_OFFSET
+            const cy = PADDING + BTN_RADIUS + row * V_GAP
 
-                const cx = PADDING + col * H_GAP + (ROW_COUNT - 1 - row) * ROW_OFFSET
-                const cy = PADDING + BTN_RADIUS + row * V_GAP
-                
-                const isActive = activeButtonPosition?.row === row && activeButtonPosition?.col === col
-                const isTarget = targetMidiNote === midi
-                
-                const color = isActive ? activeButtonPosition!.color : (isTarget ? '#4B5563' : '#1F2937')
-                const labelColor = isActive ? '#000' : (isTarget ? '#F59E0B' : '#6B7280')
-                const strokeColor = isActive ? '#fff' : (isTarget ? '#F59E0B' : '#374151')
+            const isActive = activeKeys.has(`${row}-${col}`)
+            const isTarget = targetMidiNote === midi
 
-                return (
-                  <g key={col} className="transition-all duration-150">
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={BTN_RADIUS}
-                      fill={color}
-                      stroke={strokeColor}
-                      strokeWidth={isActive ? 3 : (isTarget ? 2 : 1)}
-                      className={`transition-all duration-150 ${isTarget && !isActive ? 'animate-pulse' : ''}`}
-                      data-active={isActive ? 'true' : undefined}
-                    />
-                    <text
-                      x={cx}
-                      y={cy + 1}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize={12} // Plus grand
-                      fill={labelColor}
-                      fontWeight={isActive || isTarget ? 'bold' : 'medium'}
-                      className="pointer-events-none select-none"
-                    >
-                      {midiToFrenchName(midi)}
-                    </text>
-                  </g>
-                )
-              })}
-            </g>
-          ))}
+            // Fill rules:
+            //  - active + principal → full color
+            //  - active + duplicate → transparent fill, color outline
+            //  - target (Player mode) → muted background with amber outline
+            //  - default → dark slate (duplicates dimmer than principals)
+            let fill: string
+            let stroke: string
+            let strokeWidth: number
+            let textColor: string
+            let pulse = false
+
+            if (isActive && activeColor && isDuplicate) {
+              fill = 'transparent'
+              stroke = activeColor
+              strokeWidth = 3
+              textColor = activeColor
+            } else if (isActive && activeColor) {
+              fill = activeColor
+              stroke = '#fff'
+              strokeWidth = 3
+              textColor = '#000'
+              pulse = true
+            } else if (isTarget) {
+              fill = '#4B5563'
+              stroke = '#F59E0B'
+              strokeWidth = 2
+              textColor = '#F59E0B'
+              pulse = true
+            } else if (isDuplicate) {
+              // Slightly dim the duplicates by default so the eye knows they are
+              // alternatives, not separate notes.
+              fill = '#111827'
+              stroke = '#1F2937'
+              strokeWidth = 1
+              textColor = '#4B5563'
+            } else {
+              fill = '#1F2937'
+              stroke = '#374151'
+              strokeWidth = 1
+              textColor = '#9CA3AF'
+            }
+
+            return (
+              <g
+                key={`${row}-${col}`}
+                data-testid={`button-${row}-${col}`}
+                data-state={isActive ? (isDuplicate ? 'duplicate' : 'principal') : (isTarget ? 'target' : 'idle')}
+                className="transition-all duration-150"
+              >
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={BTN_RADIUS}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth}
+                  className={`transition-all duration-150 ${pulse ? 'animate-pulse' : ''}`}
+                />
+                <text
+                  x={cx}
+                  y={cy + 1}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={11}
+                  fill={textColor}
+                  fontWeight={isActive || isTarget ? 'bold' : 'medium'}
+                  className="pointer-events-none select-none"
+                >
+                  {midiToFrenchName(midi)}
+                </text>
+              </g>
+            )
+          })}
         </svg>
       </div>
     </div>

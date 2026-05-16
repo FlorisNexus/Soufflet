@@ -66,3 +66,37 @@ export function midiToOctave(midiNote: number): number {
 export function frequencyToMidi(frequency: number): number {
   return Math.round(69 + 12 * Math.log2(frequency / 440))
 }
+
+/**
+ * Equal-temperament frequency in Hz for a given MIDI note (A4 = 440 Hz reference).
+ * Used by the audio reference player and the cents readout in Free Play mode.
+ * @param midiNote - The MIDI note number.
+ * @returns The theoretical frequency in Hz.
+ */
+export function equalTempHz(midiNote: number): number {
+  return 440 * Math.pow(2, (midiNote - 69) / 12)
+}
+
+/**
+ * Cents deviation between a detected frequency and its theoretical equal-temperament target.
+ * Positive = sharp, negative = flat. Used to display "+5¢" in the Free Play readout
+ * so the user can cross-check accuracy against any external tuner.
+ * @param detectedHz - The frequency detected by pitchy.
+ * @param midiNote - The MIDI note the detected frequency was rounded to.
+ * @returns The deviation in cents (1/100 of a semitone).
+ */
+export function centsFromHz(detectedHz: number, midiNote: number): number {
+  if (detectedHz <= 0) return 0
+  const target = equalTempHz(midiNote)
+  return 1200 * Math.log2(detectedHz / target)
+}
+
+/**
+ * Human-readable French note name with octave (e.g. "Do 4", "Sol# 5").
+ * The space between class and octave keeps it readable in tight UI labels.
+ * @param midiNote - The MIDI note number.
+ * @returns "Do 4" style label.
+ */
+export function midiToFrenchNameWithOctave(midiNote: number): string {
+  return `${midiToFrenchName(midiNote)} ${midiToOctave(midiNote)}`
+}

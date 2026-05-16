@@ -51,32 +51,39 @@ export function usePlayerState(song: Song): UsePlayerStateReturn {
   const startBeatRef = useRef(0)
   const tempoRef = useRef(1)
 
-  const totalBeats = song.notes.length > 0 
+  const totalBeats = song.notes.length > 0
     ? song.notes.reduce((max, n) => Math.max(max, n.startBeat + n.durationBeats), 0)
     : 0
 
-  const tick = useCallback((timestamp: number) => {
-    if (startTimeRef.current === null) startTimeRef.current = timestamp
+  // `tickRef` breaks the self-reference cycle that would otherwise force `tick`
+  // to capture itself in its own closure (a lint error: react-hooks/immutability).
+  const tickRef = useRef<(timestamp: number) => void>(() => {})
 
-    const elapsedSeconds = (timestamp - startTimeRef.current) / 1000
-    const beatsPerSecond = (song.bpm / 60) * tempoRef.current
-    const currentBeat = startBeatRef.current + elapsedSeconds * beatsPerSecond
+  useEffect(() => {
+    const loop = (timestamp: number) => {
+      if (startTimeRef.current === null) startTimeRef.current = timestamp
 
-    if (currentBeat >= totalBeats) {
-      setState(prev => ({ ...prev, isPlaying: false, currentBeat: totalBeats, isFinished: true }))
-      return
+      const elapsedSeconds = (timestamp - startTimeRef.current) / 1000
+      const beatsPerSecond = (song.bpm / 60) * tempoRef.current
+      const currentBeat = startBeatRef.current + elapsedSeconds * beatsPerSecond
+
+      if (currentBeat >= totalBeats) {
+        setState(prev => ({ ...prev, isPlaying: false, currentBeat: totalBeats, isFinished: true }))
+        return
+      }
+
+      setState(prev => ({ ...prev, currentBeat }))
+      rafRef.current = requestAnimationFrame(tickRef.current)
     }
-
-    setState(prev => ({ ...prev, currentBeat }))
-    rafRef.current = requestAnimationFrame(tick)
+    tickRef.current = loop
   }, [song.bpm, totalBeats])
 
   const play = useCallback(() => {
     startTimeRef.current = null
     startBeatRef.current = 0
     setState(prev => ({ ...prev, isPlaying: true, isFinished: false, currentBeat: 0 }))
-    rafRef.current = requestAnimationFrame(tick)
-  }, [tick])
+    rafRef.current = requestAnimationFrame(tickRef.current)
+  }, [])
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)

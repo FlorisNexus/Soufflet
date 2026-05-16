@@ -39,13 +39,17 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const layout = getLayout(system)
 
-  // Build col → x-position mapping (mirrors ButtonLayout.tsx spacing)
-  const H_GAP = 52      // Aligné sur ButtonLayout
-  const ROW_OFFSET = 26 // Aligné sur ButtonLayout
-  const PADDING = 30    // Aligné sur ButtonLayout
+  // Build col → x-position mapping (mirrors ButtonLayout.tsx 5-row spacing).
+  // Kept in sync with ButtonLayout's constants — the falling rectangles land
+  // visually above the corresponding button, so any change there must mirror
+  // here.
+  const H_GAP = 48
+  const ROW_OFFSET = 22
+  const PADDING = 28
+  const ROWS_RENDERED = 5
 
   function colToX(col: number, row: number): number {
-    return PADDING + col * H_GAP + (3 - 1 - row) * ROW_OFFSET
+    return PADDING + col * H_GAP + (ROWS_RENDERED - 1 - row) * ROW_OFFSET
   }
 
   useEffect(() => {
