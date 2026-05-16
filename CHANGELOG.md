@@ -24,10 +24,24 @@
 - Removed unused `eslint-disable` directive in `PitchDetector.ts`.
 - `test-setup.ts`: dropped `as any` in favour of a typed mock context including `setTransform`, `fillRect`, `strokeRect`, and style accessors needed by the PianoRoll Canvas code.
 
+### Calibration patch (Florian's Sabatini, real-world data)
+- **Keyboard layout corrected** to match Florian's actual Sabatini Musette Doré (Italian Continental, not German Bayan as initially assumed):
+  - Each row is a **diminished-seventh arpeggio** (+3 semitones per position), not a whole-tone scale.
+  - Row counts: **17, 18, 17, 18, 17** (alternating, staggered) instead of 21 across the board.
+  - Row 0 (rangée 1) starts at Si♭2 (46), row 1 (rangée 2) at La2 (45), row 2 (rangée 3) at Si2 (47).
+  - Row 3 (rangée 4) is a mechanical duplicate of row 0 (1:1 mapping, position 18 is an orphan extrapolation).
+  - Row 4 (rangée 5) is a mechanical duplicate of row 1 **offset by +1 position** (rangée 5 pos 1 = rangée 2 pos 2 = Do3).
+- New constants in `layouts.ts`: `SEMITONES_PER_POSITION`, `BUTTONS_PER_ROW_LAYOUT`, `MAX_BUTTONS_PER_ROW`.
+- Existing tests updated to assert the new pitches; 8 empirical calibration points encoded as regression tests.
+
+### Documentation
+- New `docs/keyboard-layout.md` — exhaustive reference of Florian's keyboard with reference tables (all 87 buttons), chromatic-coverage proof, mechanical-duplicate explanation, a "play a C-major scale" example, and notes for adapting the app to a different accordion.
+- `README.md` rewritten to reflect the new Free Play mode, the corrected keyboard layout, the directory structure, and the calibration flow.
+
 ### Notes
 - Spec: `30 Repos/conductor/plans/soufflet/soufflet-spec-freeplay-2026-05.md`.
 - Plan: `30 Repos/conductor/plans/soufflet/soufflet-plan-freeplay-2026-05.md`.
-- Test coverage: 88 passing tests across 14 files.
+- Test coverage: 98 passing tests across 14 files.
 
 ## [Initial Scaffold]
 

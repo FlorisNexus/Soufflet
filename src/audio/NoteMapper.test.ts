@@ -28,12 +28,12 @@ describe('NoteMapper (B-system)', () => {
   const mapperB = new NoteMapper('B')
 
   it('gives different row for same note in C vs B system', () => {
-    // Let's test note 56 (La3).
-    // C-system: row 0 (56+2*0) YES.
-    // B-system: row 2 (56+2*0) YES.
-    const c56 = mapperC.map(56)
-    const b56 = mapperB.map(56)
-    expect(c56!.row).toBe(0)
-    expect(b56!.row).toBe(2)
+    // C-system row starts: [46, 45, 47, ...] with +3 semis per position.
+    // B-system row starts: [45, 44, 46, ...] (shifted -1 semitone).
+    // Mi4 (64): C-system → row 0 col 6 (46+18=64). B-system → row 2 col 6 (46+18=64).
+    const c64 = mapperC.map(64)
+    const b64 = mapperB.map(64)
+    expect(c64!.row).toBe(0)
+    expect(b64!.row).toBe(2)
   })
 })
