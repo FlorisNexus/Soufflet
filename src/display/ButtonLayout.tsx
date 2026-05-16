@@ -36,13 +36,13 @@ type Props = {
 }
 
 // ─── Vertical layout constants ───────────────────────────────────────────────
-const V_BTN = 19       // button radius
-const V_ROW_GAP = 60   // horizontal distance between row centres
-const V_COL_GAP = 36   // vertical distance between button centres
+const V_BTN = 17       // button radius (diameter = 34px, well below V_COL_GAP → visible gap)
+const V_ROW_GAP = 60   // horizontal distance between row centres (gap = 60-34 = 26px)
+const V_COL_GAP = 44   // vertical distance between button centres  (gap = 44-34 = 10px)
 // 18-button rows are physically staggered UP by half a step on the instrument.
 // This means Do (rangée 2, 18-btn) appears ABOVE Ré (rangée 3, 17-btn)
 // at the same position number — which matches the physical layout.
-const V_STAGGER = 18   // = V_COL_GAP / 2
+const V_STAGGER = 22   // = V_COL_GAP / 2
 const V_HPAD = 22      // horizontal padding
 const V_VPAD = 28      // vertical padding (extra top room for the upward-shifted rows)
 
