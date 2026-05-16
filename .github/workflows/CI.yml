@@ -6,27 +6,70 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Needed for test-reporter (checks:write) and coverage PR comment (pull-requests:write)
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24.x'
-        cache: 'npm'
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm install
+      - name: Install dependencies
+        run: npm install
 
-    - name: Lint
-      run: npm run lint
+      # ── Lint ──────────────────────────────────────────────────────────────
+      - name: Lint
+        run: npm run lint
 
-    - name: Test
-      run: npm run test -- --run
+      # ── Tests + JUnit report ──────────────────────────────────────────────
+      - name: Create test-results directory
+        run: mkdir -p test-results
 
-    - name: Build
-      run: npm run build
+      - name: Test (with JUnit report)
+        run: npm run test:ci
+        # Continue so the report upload always runs, even if tests fail.
+        continue-on-error: true
+
+      - name: Publish test report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Vitest Tests
+          path: test-results/junit.xml
+          reporter: java-junit
+          fail-on-error: true   # Fail the step (and job) if any test failed.
+
+      # ── Code coverage ─────────────────────────────────────────────────────
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      - name: Coverage PR comment
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          # Reads coverage/coverage-summary.json (json-summary reporter).
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build
+        run: npm run build
