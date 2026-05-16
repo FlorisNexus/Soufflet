@@ -1,17 +1,9 @@
 /**
  * @file FreePlay.tsx
- * @description Free-play mode: live pitch detection with a scrolling ribbon and
- * a multi-position keyboard highlight. The user plays whatever they want and
- * the app annotates each note in real time so they can map the instrument's
- * geography by experimenting.
- *
- * WHY: the user has a 5-row chromatic accordion where each note is reachable
- * from several positions (rows 4–5 duplicate rows 1–2). Visualising every
- * candidate button each time a note fires builds that mental map without
- * pre-loaded songs or solfège.
- *
- * NOTE: implementation lives mostly in `useFreePlaySession` (state machine)
- * and `PianoRoll` (Canvas). This file is the page composition.
+ * @description Free-play mode — full-screen dark-studio layout.
+ * The played note is the hero element. The keyboard lives in a fixed-width
+ * right panel, the scrolling ribbon fills the top, and controls are kept
+ * minimal to maximise the music-making focus.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -19,10 +11,7 @@ import type { AccordionSystem } from '../constants/layouts'
 import { useFreePlaySession } from '../hooks/useFreePlaySession'
 import PianoRoll from '../display/PianoRoll'
 import ButtonLayout from '../display/ButtonLayout'
-import {
-  centsFromHz,
-  midiToFrenchNameWithOctave,
-} from '../constants/notes'
+import { centsFromHz, midiToColor, midiToFrenchNameWithOctave } from '../constants/notes'
 import { AudioReferencePlayer } from '../audio/AudioReferencePlayer'
 
 type Props = {
@@ -32,165 +21,265 @@ type Props = {
 }
 
 export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
-  const {
-    timeline,
-    currentNote,
-    sessionStartedAt,
-    isListening,
-    error,
-    start,
-    stop,
-    reset,
-  } = useFreePlaySession()
+  const { timeline, currentNote, sessionStartedAt, isListening, error, start, stop, reset } =
+    useFreePlaySession()
 
   const [audioRefEnabled, setAudioRefEnabled] = useState(false)
   const [audioRef] = useState(() => new AudioReferencePlayer())
 
-  // Keep the player in sync with the toggle, and release WebAudio resources
-  // when the page unmounts.
   useEffect(() => { audioRef.setMuted(!audioRefEnabled) }, [audioRef, audioRefEnabled])
   useEffect(() => () => audioRef.dispose(), [audioRef])
 
   const playReference = useCallback(
-    (midi: number) => {
-      if (!audioRefEnabled) return
-      audioRef.play(midi)
-    },
+    (midi: number) => { if (audioRefEnabled) audioRef.play(midi) },
     [audioRef, audioRefEnabled],
   )
 
-  const stopRef = useCallback(() => {
-    audioRef.stopAll()
-  }, [audioRef])
+  const handleBack = useCallback(() => { stop(); audioRef.stopAll(); onBack() }, [stop, audioRef, onBack])
 
-  const handleBack = useCallback(() => {
-    stop()
-    stopRef()
-    onBack()
-  }, [stop, stopRef, onBack])
-
-  // Format the central readout: name + Hz + cents.
+  const noteColor = currentNote ? midiToColor(currentNote.midi) : null
   const readout = (() => {
     if (!currentNote) return { name: '—', hz: '', cents: '' }
     const name = midiToFrenchNameWithOctave(currentNote.midi)
-    const hz = `${currentNote.frequencyHz.toFixed(1)} Hz`
-    const cents = centsFromHz(currentNote.frequencyHz, currentNote.midi)
-    const sign = cents >= 0 ? '+' : ''
-    return { name, hz, cents: `${sign}${cents.toFixed(0)}¢` }
+    const hz = currentNote.frequencyHz.toFixed(1)
+    const c = centsFromHz(currentNote.frequencyHz, currentNote.midi)
+    return { name, hz, cents: `${c >= 0 ? '+' : ''}${c.toFixed(0)}¢` }
   })()
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col max-w-5xl mx-auto overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center gap-4 px-6 py-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 sticky top-0 z-40">
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #080810 0%, #0d0d18 50%, #080810 100%)' }}
+    >
+      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
+      <header
+        className="flex items-center gap-3 px-5 py-3 shrink-0 border-b z-40"
+        style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(10,10,18,0.85)', backdropFilter: 'blur(12px)' }}
+      >
         <button
           onClick={handleBack}
-          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all active:scale-90"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border text-gray-400 hover:text-white transition-all active:scale-90 text-lg"
+          style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}
         >
-          <span className="text-2xl">←</span>
+          ←
         </button>
 
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-black truncate tracking-tight">Mode libre</h1>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-0.5">
-            {isListening ? '🎤 À l\'écoute' : '⏸ Inactif'}
-          </p>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-sm font-bold uppercase tracking-[0.2em] text-gray-300"
+            style={{ fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.25em' }}
+          >
+            Mode Libre
+          </span>
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
+            style={{
+              background: isListening ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
+              color: isListening ? '#4ade80' : '#6b7280',
+              border: `1px solid ${isListening ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)'}`,
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: isListening ? '#4ade80' : '#374151',
+                boxShadow: isListening ? '0 0 6px #4ade80' : 'none',
+                animation: isListening ? 'pulse 1.5s ease-in-out infinite' : 'none',
+              }}
+            />
+            {isListening ? 'Écoute' : 'Arrêté'}
+          </span>
         </div>
 
-        <label className="flex items-center gap-2 text-xs font-bold text-gray-400 cursor-pointer select-none px-3 py-2 rounded-xl hover:bg-gray-800 transition-colors">
+        <div className="flex-1" />
+
+        {/* Audio reference toggle */}
+        <label
+          className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 rounded-lg transition-all"
+          style={{ background: audioRefEnabled ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)' }}
+        >
           <input
             type="checkbox"
             checked={audioRefEnabled}
             onChange={e => setAudioRefEnabled(e.target.checked)}
-            className="w-4 h-4 accent-amber-500 rounded border-gray-700 bg-gray-800"
+            className="sr-only"
           />
-          RÉFÉRENCE AUDIO
+          <span
+            className="w-8 h-4 rounded-full relative transition-colors duration-200"
+            style={{ background: audioRefEnabled ? '#f59e0b' : '#1f2937' }}
+          >
+            <span
+              className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200 shadow"
+              style={{ left: audioRefEnabled ? '17px' : '2px' }}
+            />
+          </span>
+          <span
+            className="text-xs font-bold uppercase tracking-wider"
+            style={{ color: audioRefEnabled ? '#f59e0b' : '#6b7280' }}
+          >
+            Référence
+          </span>
         </label>
 
         <button
           onClick={onRecalibrate}
-          className="hidden sm:inline-flex text-xs font-bold text-gray-500 hover:text-amber-400 px-3 py-2 rounded-xl hover:bg-gray-800 transition-colors"
-          title="Recalibrer C/B-system"
+          className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-600 hover:text-amber-400 transition-colors text-lg"
+          title="Recalibrer"
         >
           ⚙
         </button>
       </header>
 
       {error && (
-        <div className="bg-red-900/30 border-b border-red-700/30 text-red-200 text-sm px-6 py-3">
+        <div className="px-5 py-2.5 text-sm shrink-0" style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
           {error}
         </div>
       )}
 
-      {/* Main content: two columns on desktop (left = roll+readout+controls, right = keyboard) */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      {/* ── MAIN: left column + right keyboard ──────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Left column ── */}
-        <div className="flex flex-col flex-1 min-w-0">
+        {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-          {/* PianoRoll */}
-          <section className="bg-black border-b border-white/5 p-4">
+          {/* Piano roll — flex-1 so it fills all available space */}
+          <div className="flex-1 min-h-0 p-3" style={{ background: '#06060f' }}>
             <PianoRoll
               timeline={timeline}
               sessionStartedAt={sessionStartedAt}
-              height={140}
               onBlockClick={playReference}
             />
-          </section>
+          </div>
 
-          {/* Central readout — fixed height so the keyboard column never shifts
-               when content transitions between "—" and "Do 4 — 261.6 Hz — +5¢". */}
-          <section className="bg-gray-900 border-b border-white/5 px-6 py-4 flex flex-col sm:flex-row items-center justify-center gap-4 h-28 shrink-0">
-            <div className="text-center">
-              <div className="text-5xl font-black tracking-tight leading-none">{readout.name}</div>
-              <div className="text-gray-400 text-sm font-mono mt-1 h-5">
-                {readout.hz}{readout.cents && <span className="text-amber-400 ml-2">{readout.cents}</span>}
-              </div>
+          {/* ── NOTE HERO ─────────────────────────────────────────────── */}
+          <div
+            className="shrink-0 flex items-center gap-6 px-8 py-5 border-t"
+            style={{
+              borderColor: 'rgba(255,255,255,0.06)',
+              background: 'rgba(8,8,16,0.9)',
+              minHeight: '5.5rem',
+            }}
+          >
+            {/* Color stripe — takes the active note's color */}
+            <div
+              className="w-1 self-stretch rounded-full shrink-0 transition-all duration-200"
+              style={{
+                background: noteColor ?? 'rgba(255,255,255,0.08)',
+                boxShadow: noteColor ? `0 0 16px ${noteColor}88` : 'none',
+              }}
+            />
+
+            {/* Note name */}
+            <div
+              className="leading-none transition-all duration-150"
+              style={{
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+                fontWeight: 900,
+                color: noteColor ?? '#374151',
+                textShadow: noteColor ? `0 0 40px ${noteColor}66` : 'none',
+                minWidth: '5ch',
+              }}
+            >
+              {readout.name}
             </div>
+
+            {/* Hz + cents */}
+            <div className="flex flex-col gap-0.5">
+              {readout.hz && (
+                <span
+                  className="text-sm font-bold"
+                  style={{ fontFamily: "'JetBrains Mono', monospace", color: '#9ca3af' }}
+                >
+                  {readout.hz} Hz
+                </span>
+              )}
+              {readout.cents && (
+                <span
+                  className="text-sm font-bold"
+                  style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f59e0b' }}
+                >
+                  {readout.cents}
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Reference button */}
             <button
               onClick={() => currentNote && playReference(currentNote.midi)}
               disabled={!currentNote || !audioRefEnabled}
-              className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-black disabled:bg-gray-800 disabled:text-gray-600 transition-all active:scale-95"
-              title={audioRefEnabled ? 'Jouer la référence' : 'Active la référence audio dans le menu'}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wide transition-all active:scale-95 disabled:opacity-30"
+              style={{
+                background: 'rgba(245,158,11,0.12)',
+                border: '1px solid rgba(245,158,11,0.25)',
+                color: '#f59e0b',
+              }}
             >
-              ▶ Référence
+              <span>▶</span> Réf
             </button>
-          </section>
+          </div>
 
-          {/* Footer controls */}
-          <footer className="bg-gray-950 px-6 py-4 flex gap-3 justify-center mt-auto">
+          {/* ── CONTROLS ──────────────────────────────────────────────── */}
+          <div
+            className="shrink-0 flex items-center gap-3 px-6 py-4 border-t"
+            style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(6,6,14,0.95)' }}
+          >
             {!isListening ? (
               <button
                 onClick={start}
-                className="flex-1 max-w-xs bg-amber-500 hover:bg-amber-400 text-black font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
+                className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-2xl font-black text-base uppercase tracking-wider transition-all active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#000',
+                  boxShadow: '0 0 24px rgba(245,158,11,0.3)',
+                }}
               >
-                🎤 Démarrer
+                <span>🎤</span> Démarrer
               </button>
             ) : (
               <>
                 <button
                   onClick={reset}
-                  className="flex-1 max-w-xs bg-gray-800 hover:bg-gray-700 text-white font-bold py-4 rounded-2xl text-lg transition-all active:scale-95"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.98] border"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: '#9ca3af',
+                  }}
                 >
                   ↻ Réinitialiser
                 </button>
                 <button
                   onClick={stop}
-                  className="flex-1 max-w-xs bg-red-500 hover:bg-red-400 text-white font-black py-4 rounded-2xl text-lg transition-all active:scale-95"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.98] border"
+                  style={{
+                    background: 'rgba(239,68,68,0.08)',
+                    borderColor: 'rgba(239,68,68,0.2)',
+                    color: '#f87171',
+                  }}
                 >
                   ⏸ Pause
                 </button>
               </>
             )}
-          </footer>
+          </div>
         </div>
 
-        {/* ── Right column — vertical keyboard ── */}
-        <aside className="bg-gray-900/80 border-t md:border-t-0 md:border-l border-white/5 p-4 flex items-start justify-center overflow-y-auto">
-          <ButtonLayout
-            system={system}
-            activeMidi={currentNote?.midi ?? null}
-          />
+        {/* ── RIGHT PANEL — keyboard ───────────────────────────────────── */}
+        <aside
+          className="shrink-0 flex items-start justify-center overflow-y-auto border-l"
+          style={{
+            width: '18rem',
+            borderColor: 'rgba(255,255,255,0.06)',
+            background: 'rgba(8,8,18,0.95)',
+            padding: '1rem 0.75rem',
+            /* Subtle vertical line on the left to separate panel */
+            boxShadow: '-1px 0 0 0 rgba(245,158,11,0.08)',
+          }}
+        >
+          <ButtonLayout system={system} activeMidi={currentNote?.midi ?? null} />
         </aside>
 
       </div>
