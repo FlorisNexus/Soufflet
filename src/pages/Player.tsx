@@ -1,6 +1,7 @@
 /**
  * @file Player.tsx
- * @description Main play screen; integrates audio detection and falling notes.
+ * @description Main play screen; full-screen dark-studio layout matching FreePlay.
+ * Left column: falling notes + stats + controls. Right panel: vertical keyboard.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -12,36 +13,21 @@ import FallingNotes from '../display/FallingNotes'
 import FeedbackOverlay from '../display/FeedbackOverlay'
 import type { AccordionSystem } from '../constants/layouts'
 import { progressStore } from '../store/progressStore'
+import { midiToFrenchNameWithOctave } from '../constants/notes'
 
-/**
- * Props for the Player component.
- */
 type Props = {
-  /** The song to play */
   song: Song
-  /** The accordion system, decided by calibration at boot. */
   system: AccordionSystem
-  /** Callback fired when the user wants to return to the home screen */
   onBack: () => void
 }
 
-/**
- * Result of a single note evaluation (success or error).
- */
 type EvaluationResult = { result: 'correct' | 'wrong'; expectedName: string } | null
 
-/**
- * Main game engine screen.
- * Coordinates the timing clock, microphone detection, and visual renderings.
- */
 export default function Player({ song, system, onBack }: Props) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<EvaluationResult>(null)
   const [showNoteNames, setShowNoteNames] = useState(false)
   const [targetNote, setTargetNote] = useState<SongNote | null>(null)
-
-  // Tracking stats for the current session. State (not refs) because the
-  // precision percentage is rendered in the header and the final score screen.
   const [totalNotes, setTotalNotes] = useState(0)
   const [correctNotes, setCorrectNotes] = useState(0)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,9 +36,6 @@ export default function Player({ song, system, onBack }: Props) {
   const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, setTempoMultiplier } =
     usePlayerState(song)
 
-  /**
-   * Starts the 3-second countdown before launching playback.
-   */
   const handleStart = useCallback(async () => {
     setCountdown(3)
     setTotalNotes(0)
@@ -72,9 +55,6 @@ export default function Player({ song, system, onBack }: Props) {
     }, 1000)
   }, [startListening, play])
 
-  /**
-   * Immediately halts playback and audio processing.
-   */
   const handleStop = useCallback(() => {
     stop()
     stopListening()
@@ -83,9 +63,6 @@ export default function Player({ song, system, onBack }: Props) {
     setTargetNote(null)
   }, [stop, stopListening])
 
-  /**
-   * Evaluates the detected microphone input against the expected song note.
-   */
   const handleNoteAtLine = useCallback((note: SongNote) => {
     setTargetNote(note)
     setTotalNotes(n => n + 1)
@@ -95,34 +72,21 @@ export default function Player({ song, system, onBack }: Props) {
     } else {
       const isCorrect = detectedNote.midiNote === note.midiNote
       if (isCorrect) setCorrectNotes(n => n + 1)
-
-      setFeedback({
-        result: isCorrect ? 'correct' : 'wrong',
-        expectedName: detectedNote.frenchName,
-      })
+      setFeedback({ result: isCorrect ? 'correct' : 'wrong', expectedName: detectedNote.frenchName })
     }
 
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
-    feedbackTimerRef.current = setTimeout(() => {
-      setFeedback(null)
-      // On garde le targetNote jusqu'à la prochaine note pour que l'utilisateur voit ce qu'il doit jouer
-    }, 600)
+    feedbackTimerRef.current = setTimeout(() => setFeedback(null), 600)
   }, [detectedNote])
 
-  /**
-   * Record progress when the song finishes.
-   */
   useEffect(() => {
     if (isFinished) {
-      const score = totalNotes > 0
-        ? Math.round((correctNotes / totalNotes) * 5)
-        : 0
+      const score = totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 5) : 0
       progressStore.recordPlay(song.id, score)
       stopListening()
     }
   }, [isFinished, song.id, stopListening, totalNotes, correctNotes])
 
-  // Component cleanup
   useEffect(() => {
     return () => {
       handleStop()
@@ -130,77 +94,224 @@ export default function Player({ song, system, onBack }: Props) {
     }
   }, [handleStop])
 
+  const precision = totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 100) : 0
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col max-w-4xl mx-auto overflow-hidden shadow-2xl border-x border-gray-900">
-      {/* Header */}
-      <header className="flex items-center gap-6 px-6 py-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800 sticky top-0 z-40">
-        <button 
-          onClick={() => { handleStop(); onBack() }} 
-          className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all active:scale-90"
+    <div
+      className="fixed inset-0 flex flex-col overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, #080810 0%, #0d0d18 50%, #080810 100%)' }}
+    >
+      {/* ── HEADER ──────────────────────────────────────────────────────── */}
+      <header
+        className="flex items-center gap-3 px-5 py-3 shrink-0 border-b z-40"
+        style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(10,10,18,0.85)', backdropFilter: 'blur(12px)' }}
+      >
+        <button
+          onClick={() => { handleStop(); onBack() }}
+          className="w-9 h-9 flex items-center justify-center rounded-xl border text-gray-400 hover:text-white transition-all active:scale-90 text-lg"
+          style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}
         >
-          <span className="text-2xl">←</span>
+          ←
         </button>
-        
-        <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-black truncate tracking-tight">{song.title}</h1>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-0.5">Session en cours</p>
+
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="text-sm font-bold uppercase tracking-widest text-gray-300 truncate"
+            style={{ fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.25em' }}
+          >
+            {song.title}
+          </span>
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold shrink-0"
+            style={{
+              background: isListening ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
+              color: isListening ? '#4ade80' : '#6b7280',
+              border: `1px solid ${isListening ? 'rgba(34,197,94,0.25)' : 'rgba(255,255,255,0.08)'}`,
+            }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{
+                background: isListening ? '#4ade80' : '#374151',
+                boxShadow: isListening ? '0 0 6px #4ade80' : 'none',
+                animation: isListening ? 'pulse 1.5s ease-in-out infinite' : 'none',
+              }}
+            />
+            {isListening ? 'Écoute' : 'Arrêté'}
+          </span>
         </div>
 
-        <div className="hidden sm:flex items-center gap-4 bg-black/30 px-4 py-2 rounded-2xl border border-white/5">
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] text-gray-500 font-black uppercase tracking-tighter">Précision</span>
-            <span className="text-sm font-mono font-bold text-amber-500">
-              {totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 100) : 0}%
+        <div className="flex-1" />
+
+        {/* Precision badge */}
+        {totalNotes > 0 && (
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg shrink-0"
+            style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}
+          >
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Précision</span>
+            <span
+              className="text-sm font-black"
+              style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f59e0b' }}
+            >
+              {precision}%
             </span>
           </div>
-          <div className="w-px h-6 bg-gray-800" />
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setTempoMultiplier(Math.max(0.5, tempoMultiplier - 0.1))}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-            >−</button>
-            <span className="font-mono text-sm w-10 text-center">{Math.round(tempoMultiplier * 100)}%</span>
-            <button 
-              onClick={() => setTempoMultiplier(Math.min(1.2, tempoMultiplier + 0.1))}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-            >+</button>
-          </div>
-        </div>
+        )}
 
-        <label className="flex items-center gap-2 text-xs font-bold text-gray-400 cursor-pointer select-none px-3 py-2 rounded-xl hover:bg-gray-800 transition-colors">
-          <input 
-            type="checkbox" 
-            checked={showNoteNames} 
+        {/* Labels toggle */}
+        <label
+          className="flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 rounded-lg transition-all shrink-0"
+          style={{ background: showNoteNames ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)' }}
+        >
+          <input
+            type="checkbox"
+            checked={showNoteNames}
             onChange={e => setShowNoteNames(e.target.checked)}
-            className="w-4 h-4 accent-amber-500 rounded border-gray-700 bg-gray-800"
+            className="sr-only"
           />
-          LABELS
+          <span
+            className="w-8 h-4 rounded-full relative transition-colors duration-200"
+            style={{ background: showNoteNames ? '#f59e0b' : '#1f2937' }}
+          >
+            <span
+              className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200 shadow"
+              style={{ left: showNoteNames ? '17px' : '2px' }}
+            />
+          </span>
+          <span
+            className="text-xs font-bold uppercase tracking-wider"
+            style={{ color: showNoteNames ? '#f59e0b' : '#6b7280' }}
+          >
+            Labels
+          </span>
         </label>
       </header>
 
-      {/* Falling notes zone */}
-      <main className="flex-1 relative bg-black overflow-hidden flex flex-col">
-        <FallingNotes
-          song={song}
-          currentBeat={currentBeat}
-          system={system}
-          showNoteNames={showNoteNames}
-          onNoteAtLine={handleNoteAtLine}
-        />
-        <FeedbackOverlay result={feedback?.result ?? null} expectedName={feedback?.expectedName} />
-      </main>
+      {/* ── MAIN AREA ───────────────────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* Accordion button layout */}
-      <footer className="bg-gray-900/90 backdrop-blur-xl border-t border-white/5 py-8 px-4 relative z-10">
-        <ButtonLayout
-          system={system}
-          activeMidi={isListening ? (detectedNote?.midiNote ?? null) : null}
-          targetMidiNote={targetNote?.midiNote}
-          orientation="horizontal"
-        />
-      </footer>
+        {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-      {/* Countdown overlay */}
+          {/* Falling notes — fills available space */}
+          <div className="flex-1 relative overflow-hidden" style={{ background: '#06060f' }}>
+            <FallingNotes
+              song={song}
+              currentBeat={currentBeat}
+              system={system}
+              showNoteNames={showNoteNames}
+              onNoteAtLine={handleNoteAtLine}
+            />
+            <FeedbackOverlay result={feedback?.result ?? null} expectedName={feedback?.expectedName} />
+          </div>
+
+          {/* ── STATS BAR ─────────────────────────────────────────────── */}
+          <div
+            className="shrink-0 flex items-center gap-6 px-8 py-4 border-t"
+            style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(8,8,16,0.9)', minHeight: '4.5rem' }}
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Notes jouées</span>
+              <span
+                className="text-xl font-black"
+                style={{ fontFamily: "'Barlow Condensed', sans-serif", color: '#e5e7eb' }}
+              >
+                {totalNotes > 0 ? `${correctNotes} / ${totalNotes}` : '—'}
+              </span>
+            </div>
+
+            <div className="w-px h-8 self-center" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">Tempo</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTempoMultiplier(Math.max(0.5, tempoMultiplier - 0.1))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#9ca3af' }}
+                >−</button>
+                <span
+                  className="text-sm font-black w-10 text-center"
+                  style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f59e0b' }}
+                >
+                  {Math.round(tempoMultiplier * 100)}%
+                </span>
+                <button
+                  onClick={() => setTempoMultiplier(Math.min(1.2, tempoMultiplier + 0.1))}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: '#9ca3af' }}
+                >+</button>
+              </div>
+            </div>
+
+            <div className="flex-1" />
+
+            {targetNote && (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#6b7280' }}
+              >
+                <span>Attendu :</span>
+                <span style={{ color: '#e5e7eb' }}>{midiToFrenchNameWithOctave(targetNote.midiNote)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── CONTROLS BAR ──────────────────────────────────────────── */}
+          <div
+            className="shrink-0 flex items-center gap-3 px-6 py-4 border-t"
+            style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(6,6,14,0.95)' }}
+          >
+            {!isPlaying && !isFinished && countdown === null ? (
+              <button
+                onClick={handleStart}
+                className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-2xl font-black text-base uppercase tracking-wider transition-all active:scale-[0.98]"
+                style={{
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#000',
+                  boxShadow: '0 0 24px rgba(245,158,11,0.3)',
+                }}
+              >
+                <span>▶</span> Démarrer la session
+              </button>
+            ) : isPlaying ? (
+              <button
+                onClick={handleStop}
+                className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.98] border"
+                style={{
+                  background: 'rgba(239,68,68,0.08)',
+                  borderColor: 'rgba(239,68,68,0.2)',
+                  color: '#f87171',
+                }}
+              >
+                ⏸ Arrêter
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL — vertical keyboard ─────────────────────────── */}
+        <aside
+          className="shrink-0 flex items-start justify-center overflow-y-auto border-l"
+          style={{
+            width: '24rem',
+            borderColor: 'rgba(255,255,255,0.06)',
+            background: 'rgba(8,8,18,0.95)',
+            padding: '1rem 0.75rem',
+            boxShadow: '-1px 0 0 0 rgba(245,158,11,0.08)',
+          }}
+        >
+          <ButtonLayout
+            system={system}
+            activeMidi={isListening ? (detectedNote?.midiNote ?? null) : null}
+            targetMidiNote={targetNote?.midiNote}
+            orientation="vertical"
+          />
+        </aside>
+      </div>
+
+      {/* ── COUNTDOWN OVERLAY ───────────────────────────────────────────── */}
       {countdown !== null && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-xl">
           <div className="relative">
@@ -210,44 +321,39 @@ export default function Player({ song, system, onBack }: Props) {
         </div>
       )}
 
-      {/* Song finished screen */}
+      {/* ── SONG FINISHED OVERLAY ───────────────────────────────────────── */}
       {isFinished && (
         <div className="fixed inset-0 bg-black/95 flex flex-col items-center justify-center z-50 gap-12 backdrop-blur-2xl p-6 text-center">
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="text-8xl mb-6 scale-110">🎉</div>
-            <h2 className="text-7xl font-black text-white tracking-tighter mb-4">BRAVO !</h2>
+            <h2
+              className="text-7xl font-black text-white tracking-tighter mb-4"
+              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+            >
+              BRAVO !
+            </h2>
             <div className="h-1 w-24 bg-amber-500 mx-auto rounded-full mb-8" />
             <p className="text-gray-400 text-xl max-w-xs mx-auto leading-relaxed">
-              Tu as terminé <span className="text-white font-bold">{song.title}</span> avec une précision de <span className="text-amber-500 font-black">{totalNotes > 0 ? Math.round((correctNotes / totalNotes) * 100) : 0}%</span>.
+              Tu as terminé <span className="text-white font-bold">{song.title}</span> avec une précision de{' '}
+              <span className="text-amber-500 font-black">{precision}%</span>.
             </p>
           </div>
-          
           <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm animate-in fade-in zoom-in duration-1000 delay-300">
-            <button 
-              onClick={handleStart} 
-              className="flex-1 bg-amber-500 hover:bg-amber-400 text-black px-8 py-5 rounded-3xl font-black text-xl transition-all active:scale-95 shadow-2xl shadow-amber-500/30"
+            <button
+              onClick={handleStart}
+              className="flex-1 px-8 py-5 rounded-3xl font-black text-xl transition-all active:scale-95 shadow-2xl shadow-amber-500/30"
+              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000' }}
             >
-              REESSAYER
+              RÉESSAYER
             </button>
-            <button 
-              onClick={() => { handleStop(); onBack() }} 
-              className="flex-1 bg-gray-800 hover:bg-gray-700 text-white px-8 py-5 rounded-3xl font-bold text-xl transition-all border border-white/10 active:scale-95"
+            <button
+              onClick={() => { handleStop(); onBack() }}
+              className="flex-1 px-8 py-5 rounded-3xl font-bold text-xl transition-all active:scale-95 border"
+              style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
             >
               QUITTER
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Start / stop button */}
-      {!isPlaying && !isFinished && countdown === null && (
-        <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black to-transparent pointer-events-none z-30">
-          <button
-            onClick={handleStart}
-            className="w-full max-w-md mx-auto flex items-center justify-center gap-4 bg-amber-500 hover:bg-amber-400 text-black font-black py-6 rounded-3xl text-2xl transition-all active:scale-95 shadow-2xl shadow-amber-500/40 pointer-events-auto border-b-4 border-amber-700"
-          >
-            <span className="text-3xl">▶</span> DÉMARRER LA SESSION
-          </button>
         </div>
       )}
     </div>
