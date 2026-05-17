@@ -13,6 +13,7 @@ import FallingNotes from '../display/FallingNotes'
 import type { AccordionSystem } from '../constants/layouts'
 import { AccordionSynth } from '../audio/AccordionSynth'
 import { midiToColor, midiToFrenchNameWithOctave } from '../constants/notes'
+import ProgressBar from '../display/ProgressBar'
 
 type Props = {
   song: Song
@@ -26,7 +27,7 @@ export default function Listen({ song, system, onBack }: Props) {
   const [synth] = useState(() => new AccordionSynth())
   const clearNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, setTempoMultiplier } =
+  const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, seek, setTempoMultiplier, totalBeats } =
     usePlayerState(song)
 
   const handleStop = useCallback(() => {
@@ -36,7 +37,15 @@ export default function Listen({ song, system, onBack }: Props) {
     setCurrentNote(null)
   }, [stop, synth])
 
+  const handleSeek = useCallback((beat: number) => {
+    synth.stopAll()
+    setCurrentNote(null)
+    seek(beat)
+  }, [synth, seek])
+
   const handleStart = useCallback(() => {
+    // Clear isFinished immediately so the finished overlay doesn't cover the countdown.
+    stop()
     setCountdown(3)
     setCurrentNote(null)
     synth.stopAll()
@@ -51,7 +60,7 @@ export default function Listen({ song, system, onBack }: Props) {
         setCountdown(count)
       }
     }, 1000)
-  }, [play, synth])
+  }, [stop, play, synth])
 
   const handleNoteAtLine = useCallback((note: SongNote) => {
     const durationS = (note.durationBeats * 60) / (song.bpm * tempoMultiplier)
@@ -155,6 +164,15 @@ export default function Listen({ song, system, onBack }: Props) {
               onNoteAtLine={handleNoteAtLine}
             />
           </div>
+
+          <ProgressBar
+            currentBeat={currentBeat}
+            totalBeats={totalBeats}
+            bpm={song.bpm}
+            tempoMultiplier={tempoMultiplier}
+            onSeek={handleSeek}
+            color="#818cf8"
+          />
 
           {/* ── NOTE HERO ─────────────────────────────────────────────── */}
           <div

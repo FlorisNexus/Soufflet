@@ -20,16 +20,12 @@ type PlayerState = {
   isFinished: boolean
 }
 
-/**
- * Return type for the usePlayerState hook.
- */
 type UsePlayerStateReturn = PlayerState & {
-  /** Starts or resumes song playback */
   play: () => void
-  /** Stops and resets playback */
   stop: () => void
-  /** Updates the tempo multiplier */
+  seek: (beat: number) => void
   setTempoMultiplier: (m: number) => void
+  totalBeats: number
 }
 
 /**
@@ -80,26 +76,40 @@ export function usePlayerState(song: Song): UsePlayerStateReturn {
 
   const play = useCallback(() => {
     startTimeRef.current = null
-    startBeatRef.current = 0
-    setState(prev => ({ ...prev, isPlaying: true, isFinished: false, currentBeat: 0 }))
+    // Respect any position set by seek(); default 0 on first play or after stop().
+    setState(prev => ({ ...prev, isPlaying: true, isFinished: false, currentBeat: startBeatRef.current }))
     rafRef.current = requestAnimationFrame(tickRef.current)
   }, [])
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     startTimeRef.current = null
+    startBeatRef.current = 0
     setState({ isPlaying: false, currentBeat: 0, tempoMultiplier: tempoRef.current, isFinished: false })
   }, [])
+
+  const seek = useCallback((beat: number) => {
+    const clamped = Math.max(0, Math.min(beat, totalBeats))
+    startBeatRef.current = clamped
+    startTimeRef.current = null
+    setState(prev => {
+      if (prev.isPlaying) {
+        // Restart RAF from new position while keeping playback active.
+        if (rafRef.current) cancelAnimationFrame(rafRef.current)
+        rafRef.current = requestAnimationFrame(tickRef.current)
+      }
+      return { ...prev, currentBeat: clamped, isFinished: false }
+    })
+  }, [totalBeats])
 
   const setTempoMultiplier = useCallback((m: number) => {
     tempoRef.current = m
     setState(prev => ({ ...prev, tempoMultiplier: m }))
   }, [])
 
-  // Cleanup on unmount (Angular ngOnDestroy equivalent)
   useEffect(() => {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
   }, [])
 
-  return { ...state, play, stop, setTempoMultiplier }
+  return { ...state, play, stop, seek, setTempoMultiplier, totalBeats }
 }

@@ -11,6 +11,7 @@ import { usePlayerState } from '../hooks/usePlayerState'
 import ButtonLayout from '../display/ButtonLayout'
 import FallingNotes from '../display/FallingNotes'
 import FeedbackOverlay from '../display/FeedbackOverlay'
+import ProgressBar from '../display/ProgressBar'
 import type { AccordionSystem } from '../constants/layouts'
 import { progressStore } from '../store/progressStore'
 import { midiToFrenchNameWithOctave } from '../constants/notes'
@@ -33,10 +34,13 @@ export default function Player({ song, system, onBack }: Props) {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { isListening, detectedNote, startListening, stopListening } = useAudio(system)
-  const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, setTempoMultiplier } =
+  const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, seek, setTempoMultiplier, totalBeats } =
     usePlayerState(song)
 
   const handleStart = useCallback(async () => {
+    // Call stop() first to immediately clear isFinished state — without this the
+    // finished overlay stays visible on top of the countdown (same z-index, later DOM).
+    stop()
     setCountdown(3)
     setTotalNotes(0)
     setCorrectNotes(0)
@@ -53,7 +57,7 @@ export default function Player({ song, system, onBack }: Props) {
         setCountdown(count)
       }
     }, 1000)
-  }, [startListening, play])
+  }, [stop, startListening, play])
 
   const handleStop = useCallback(() => {
     stop()
@@ -205,6 +209,15 @@ export default function Player({ song, system, onBack }: Props) {
             />
             <FeedbackOverlay result={feedback?.result ?? null} expectedName={feedback?.expectedName} />
           </div>
+
+          <ProgressBar
+            currentBeat={currentBeat}
+            totalBeats={totalBeats}
+            bpm={song.bpm}
+            tempoMultiplier={tempoMultiplier}
+            onSeek={seek}
+            color="#f59e0b"
+          />
 
           {/* ── STATS BAR ─────────────────────────────────────────────── */}
           <div
