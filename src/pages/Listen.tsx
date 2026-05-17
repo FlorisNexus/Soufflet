@@ -45,7 +45,6 @@ export default function Listen({ song, system, onBack }: Props) {
       })
       .catch(() => {})
     return () => { detector.stop(); mic.stop() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleStop = useCallback(() => {
@@ -90,10 +89,7 @@ export default function Listen({ song, system, onBack }: Props) {
   }, [synth, song.bpm, tempoMultiplier])
 
   useEffect(() => {
-    if (isFinished) {
-      synth.stopAll()
-      setCurrentNote(null)
-    }
+    if (isFinished) synth.stopAll()
   }, [isFinished, synth])
 
   useEffect(() => {

@@ -73,7 +73,7 @@ export default function Player({ song, system, onBack }: Props) {
     setCountdown(null)
     setFeedback(null)
     setTargetNote(null)
-  }, [stop, stopListening])
+  }, [stop])
 
   const handleNoteAtLine = useCallback((note: SongNote) => {
     setTargetNote(note)

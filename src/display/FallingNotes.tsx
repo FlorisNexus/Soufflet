@@ -163,8 +163,6 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
       cancelled = true
       window.removeEventListener('resize', resize)
     }
-  // Intentionally empty deps — loop uses refs; restarts only if canvas is replaced.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
