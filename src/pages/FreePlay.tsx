@@ -15,6 +15,8 @@ import BassLayout from '../display/BassLayout'
 import { centsFromHz, midiToColor, midiToFrenchNameWithOctave } from '../constants/notes'
 import { AudioReferencePlayer } from '../audio/AudioReferencePlayer'
 import { BassPitchDetector } from '../audio/BassPitchDetector'
+import { MicrophoneManager } from '../audio/MicrophoneManager'
+import { PitchDetector } from '../audio/PitchDetector'
 
 type Props = {
   system: AccordionSystem
@@ -28,48 +30,75 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
 
   const [audioRefEnabled, setAudioRefEnabled] = useState(false)
   const [audioRef] = useState(() => new AudioReferencePlayer())
+
+  // Always-on keyboard detection — starts on mount, independent of session recording.
+  // This lets the keyboard display notes immediately without pressing "Démarrer".
+  const [liveNote, setLiveNote] = useState<number | null>(null)
   const [activeBassPC, setActiveBassPC] = useState<number | null>(null)
+  const kbMicRef = useRef(new MicrophoneManager())
+  const kbDetectorRef = useRef(new PitchDetector())
   const bassDetectorRef = useRef(new BassPitchDetector())
+
+  useEffect(() => {
+    const mic = kbMicRef.current
+    const detector = kbDetectorRef.current
+    const bass = bassDetectorRef.current
+
+    mic.start()
+      .then(ctx => {
+        const source = mic.getSourceNode()
+        detector.start(ctx, source, (note) => setLiveNote(note?.midiNote ?? null))
+        const stream = mic.getStream()
+        if (stream) {
+          bass.start(stream, (note) => setActiveBassPC(note ? note.pitchClass : null))
+        }
+      })
+      .catch(() => { /* permission not yet granted — user must click Démarrer first */ })
+
+    return () => {
+      detector.stop()
+      bass.stop()
+      mic.stop()
+    }
+  }, [])
 
   useEffect(() => { audioRef.setMuted(!audioRefEnabled) }, [audioRef, audioRefEnabled])
   useEffect(() => () => audioRef.dispose(), [audioRef])
-  useEffect(() => () => bassDetectorRef.current.stop(), [])
 
   const playReference = useCallback(
     (midi: number) => { if (audioRefEnabled) audioRef.play(midi) },
     [audioRef, audioRefEnabled],
   )
 
-  // Wire bass detector whenever the mic stream becomes available.
-  const { start: baseStart, stop: baseStop, reset: baseReset } = {
-    start: start, stop: stop, reset: reset,
-  }
+  // Session handlers — recording only; mic is already running from the always-on detector.
   const handleStart = useCallback(async () => {
-    await baseStart()
-    // useFreePlaySession exposes the mic via its internal MicrophoneManager.
-    // We reach the stream by importing MicrophoneManager separately — but since
-    // useFreePlaySession doesn't expose it, we use a small workaround: ask the
-    // browser for the SAME mic stream (browser returns the same track from cache).
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      bassDetectorRef.current.start(stream, (note) => {
-        setActiveBassPC(note ? note.pitchClass : null)
-      })
-    } catch { /* bass detection not available */ }
-  }, [baseStart])
+    // If mic wasn't auto-started (permission not yet granted), start it now.
+    if (!kbMicRef.current.isRunning()) {
+      try {
+        const ctx = await kbMicRef.current.start()
+        const source = kbMicRef.current.getSourceNode()
+        kbDetectorRef.current.start(ctx, source, (note) => setLiveNote(note?.midiNote ?? null))
+        const stream = kbMicRef.current.getStream()
+        if (stream) {
+          bassDetectorRef.current.start(stream, (note) => setActiveBassPC(note ? note.pitchClass : null))
+        }
+      } catch { /* mic unavailable */ }
+    }
+    await start()
+  }, [start])
 
   const handleStop = useCallback(() => {
-    baseStop()
-    bassDetectorRef.current.stop()
-    setActiveBassPC(null)
-  }, [baseStop])
+    stop()
+    // Mic stays on — keyboard detection continues after pausing the session.
+  }, [stop])
 
-  const handleReset = useCallback(() => {
-    baseReset()
-    setActiveBassPC(null)
-  }, [baseReset])
+  const handleReset = useCallback(() => { reset() }, [reset])
 
-  const handleBack = useCallback(() => { handleStop(); audioRef.stopAll(); onBack() }, [handleStop, audioRef, onBack])
+  const handleBack = useCallback(() => {
+    stop()
+    audioRef.stopAll()
+    onBack()
+  }, [stop, audioRef, onBack])
 
   const noteColor = currentNote ? midiToColor(currentNote.midi) : null
   const readout = (() => {
@@ -325,7 +354,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
             boxShadow: '-1px 0 0 0 rgba(245,158,11,0.08)',
           }}
         >
-          <ButtonLayout system={system} activeMidi={currentNote?.midi ?? null} />
+          <ButtonLayout system={system} activeMidi={liveNote} />
         </aside>
 
       </div>
