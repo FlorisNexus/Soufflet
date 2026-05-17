@@ -37,6 +37,13 @@ export default function Player({ song, system, onBack }: Props) {
   const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, seek, setTempoMultiplier, totalBeats } =
     usePlayerState(song)
 
+  // Auto-start mic on mount so the keyboard shows notes immediately.
+  useEffect(() => {
+    startListening().catch(() => {})
+    return () => stopListening()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleStart = useCallback(async () => {
     // Call stop() first to immediately clear isFinished state — without this the
     // finished overlay stays visible on top of the countdown (same z-index, later DOM).
@@ -318,7 +325,7 @@ export default function Player({ song, system, onBack }: Props) {
         >
           <ButtonLayout
             system={system}
-            activeMidi={isListening ? (detectedNote?.midiNote ?? null) : null}
+            activeMidi={detectedNote?.midiNote ?? null}
             targetMidiNote={targetNote?.midiNote}
             orientation="vertical"
           />

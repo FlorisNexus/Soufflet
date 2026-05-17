@@ -1,6 +1,7 @@
 /**
  * @file FallingNotes.tsx
  * @description Canvas-based animation of colored rectangles falling toward the play line.
+ * Canvas fills its flex-1 container so notes reach the full screen height.
  */
 
 import { useRef, useEffect } from 'react'
@@ -9,148 +10,167 @@ import { midiToColor, midiToFrenchName } from '../constants/notes'
 import type { AccordionSystem } from '../constants/layouts'
 import { getLayout } from '../constants/layouts'
 
-/**
- * Props for the FallingNotes component.
- */
 type Props = {
-  /** The song being played */
   song: Song
-  /** The current position in the song (beats) */
   currentBeat: number
-  /** The current accordion system ('C' or 'B') */
   system: AccordionSystem
-  /** Whether to always show note names on the rectangles */
   showNoteNames: boolean
-  /** Callback fired when a note reaches the hit-line */
   onNoteAtLine: (note: SongNote) => void
 }
 
-const CANVAS_HEIGHT = 400
-const PLAY_LINE_Y = Math.round(CANVAS_HEIGHT * 0.62)  // more room below for notes to scroll after hit
+// Play line at 55% from top → 45% of screen height for notes to scroll after the line.
+const PLAY_LINE_RATIO = 0.55
 const BEATS_VISIBLE = 5
-const NOTE_WIDTH = 40                   // Plus large pour correspondre aux nouveaux boutons
+const NOTE_WIDTH = 40
 const NOTE_CORNER_RADIUS = 10
 
-/**
- * Component that renders the Synthesia-style falling notes visualization.
- * Uses a Canvas element for 60fps imperative animation.
- */
+const H_GAP = 48
+const ROW_OFFSET = 22
+const PADDING = 28
+const ROWS_RENDERED = 5
+
+function colToX(col: number, row: number): number {
+  return PADDING + col * H_GAP + (ROWS_RENDERED - 1 - row) * ROW_OFFSET
+}
+
 export default function FallingNotes({ song, currentBeat, system, showNoteNames, onNoteAtLine }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const layout = getLayout(system)
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const layout     = getLayout(system)
 
-  // Build col → x-position mapping (mirrors ButtonLayout.tsx 5-row spacing).
-  // Kept in sync with ButtonLayout's constants — the falling rectangles land
-  // visually above the corresponding button, so any change there must mirror
-  // here.
-  const H_GAP = 48
-  const ROW_OFFSET = 22
-  const PADDING = 28
-  const ROWS_RENDERED = 5
+  // Mutable refs — updated every render without restarting the RAF loop.
+  const beatRef        = useRef(currentBeat)
+  const songRef        = useRef(song)
+  const layoutRef      = useRef(layout)
+  const showNamesRef   = useRef(showNoteNames)
+  const onNoteAtLineRef = useRef(onNoteAtLine)
 
-  function colToX(col: number, row: number): number {
-    return PADDING + col * H_GAP + (ROWS_RENDERED - 1 - row) * ROW_OFFSET
-  }
+  useEffect(() => { beatRef.current = currentBeat },      [currentBeat])
+  useEffect(() => { songRef.current = song },             [song])
+  useEffect(() => { layoutRef.current = layout },         [layout])
+  useEffect(() => { showNamesRef.current = showNoteNames },[showNoteNames])
+  useEffect(() => { onNoteAtLineRef.current = onNoteAtLine },[onNoteAtLine])
 
+  // Single RAF loop — starts once, uses refs so it never needs to restart.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // On ajuste la largeur du canvas dynamiquement pour remplir le parent
     const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = CANVAS_HEIGHT * dpr
-    ctx.scale(dpr, dpr)
+    let cancelled = false
 
-    ctx.clearRect(0, 0, rect.width, CANVAS_HEIGHT)
-
-    // Draw grid lines for columns (background)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)'
-    ctx.lineWidth = 1
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 21; col++) {
-        const x = colToX(col, row)
-        ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x, CANVAS_HEIGHT)
-        ctx.stroke()
-      }
+    function resize() {
+      if (!canvas) return
+      const r = canvas.getBoundingClientRect()
+      canvas.width  = Math.max(1, Math.floor(r.width * dpr))
+      canvas.height = Math.max(1, Math.floor(r.height * dpr))
+      ctx?.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
 
-    // Draw play line (neon style)
-    ctx.shadowBlur = 10
-    ctx.shadowColor = '#F59E0B'
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.8)'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(0, PLAY_LINE_Y)
-    ctx.lineTo(rect.width, PLAY_LINE_Y)
-    ctx.stroke()
-    ctx.shadowBlur = 0 // Reset shadow
+    function draw() {
+      if (cancelled || !canvas || !ctx) return
+      if (document.hidden) { requestAnimationFrame(draw); return }
 
-    // Draw each visible note rectangle
-    song.notes.forEach(note => {
-      const beatsUntilNote = note.startBeat - currentBeat
-      // Keep drawing until the note's top edge exits the canvas bottom.
-      const maxBeatsBelow = BEATS_VISIBLE * (CANVAS_HEIGHT / PLAY_LINE_Y - 1)
-      if (beatsUntilNote > BEATS_VISIBLE || beatsUntilNote < -(note.durationBeats + maxBeatsBelow)) return
+      const r = canvas.getBoundingClientRect()
+      const W = r.width
+      const H = r.height
+      const playLineY = Math.round(H * PLAY_LINE_RATIO)
 
-      const pos = layout.get(note.midiNote)
-      if (!pos) return
+      ctx.clearRect(0, 0, W, H)
 
-      // y: 0 = top (far future), PLAY_LINE_Y = now
-      const yProgress = 1 - beatsUntilNote / BEATS_VISIBLE
-      const noteY = yProgress * PLAY_LINE_Y - (note.durationBeats / BEATS_VISIBLE) * PLAY_LINE_Y
-      const noteHeight = Math.max(20, (note.durationBeats / BEATS_VISIBLE) * PLAY_LINE_Y)
-      const x = colToX(pos.col, pos.row) - NOTE_WIDTH / 2
+      const bg = ctx.createLinearGradient(0, 0, 0, H)
+      bg.addColorStop(0, 'rgba(255,255,255,0.02)')
+      bg.addColorStop(1, 'rgba(0,0,0,0.0)')
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
 
-      // Gradient color
-      const color = midiToColor(note.midiNote)
-      const gradient = ctx.createLinearGradient(x, noteY, x, noteY + noteHeight)
-      gradient.addColorStop(0, color)
-      gradient.addColorStop(1, color + 'CC') // semi-transparent bottom
-
-      // Draw rounded rectangle with glow if close
-      if (Math.abs(beatsUntilNote) < 0.2) {
-        ctx.shadowBlur = 15
-        ctx.shadowColor = color
-      }
-      
-      ctx.fillStyle = gradient
-      ctx.beginPath()
-      ctx.roundRect(x, noteY, NOTE_WIDTH, noteHeight, NOTE_CORNER_RADIUS)
-      ctx.fill()
-      
-      // Border
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
+      // Grid lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)'
       ctx.lineWidth = 1
-      ctx.stroke()
-      
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 21; col++) {
+          const x = colToX(col, row)
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+        }
+      }
+
+      // Play line
+      ctx.shadowBlur = 10
+      ctx.shadowColor = '#F59E0B'
+      ctx.strokeStyle = 'rgba(245,158,11,0.8)'
+      ctx.lineWidth = 3
+      ctx.beginPath(); ctx.moveTo(0, playLineY); ctx.lineTo(W, playLineY); ctx.stroke()
       ctx.shadowBlur = 0
 
-      // Note name label
-      if (showNoteNames || beatsUntilNote < 1.5) {
-        ctx.fillStyle = '#000'
-        ctx.font = 'bold 12px system-ui'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(midiToFrenchName(note.midiNote), x + NOTE_WIDTH / 2, noteY + noteHeight / 2)
-      }
+      const beat   = beatRef.current
+      const notes  = songRef.current.notes
+      const lt     = layoutRef.current
 
-      // Fire event when note reaches play line
-      if (Math.abs(beatsUntilNote) < 0.05) {
-        onNoteAtLine(note)
-      }
-    })
-  }, [currentBeat, song, system, showNoteNames, onNoteAtLine, layout])
+      // How many beats of "below-the-line" space the canvas provides.
+      const maxBeatsBelow = BEATS_VISIBLE * ((H - playLineY) / playLineY)
+
+      notes.forEach(note => {
+        const bun = note.startBeat - beat   // beats until note hits line (negative = past)
+
+        if (bun > BEATS_VISIBLE || bun < -(note.durationBeats + maxBeatsBelow)) return
+
+        const pos = lt.get(note.midiNote)
+        if (!pos) return
+
+        const yProgress = 1 - bun / BEATS_VISIBLE
+        const noteY  = yProgress * playLineY - (note.durationBeats / BEATS_VISIBLE) * playLineY
+        const noteH  = Math.max(20, (note.durationBeats / BEATS_VISIBLE) * playLineY)
+        const x      = colToX(pos.col, pos.row) - NOTE_WIDTH / 2
+
+        const color = midiToColor(note.midiNote)
+        const grad  = ctx.createLinearGradient(x, noteY, x, noteY + noteH)
+        grad.addColorStop(0, color)
+        grad.addColorStop(1, color + 'CC')
+
+        if (Math.abs(bun) < 0.2) { ctx.shadowBlur = 15; ctx.shadowColor = color }
+
+        ctx.fillStyle = grad
+        ctx.beginPath()
+        ctx.roundRect(x, noteY, NOTE_WIDTH, noteH, NOTE_CORNER_RADIUS)
+        ctx.fill()
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        ctx.shadowBlur = 0
+
+        // Always show note name when the rectangle is tall enough to fit the text.
+        if (noteH >= 16) {
+          ctx.fillStyle = '#000'
+          ctx.font = `bold ${Math.min(12, Math.floor(noteH - 4))}px system-ui`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(midiToFrenchName(note.midiNote), x + NOTE_WIDTH / 2, noteY + noteH / 2)
+        }
+
+        if (Math.abs(bun) < 0.05) onNoteAtLineRef.current(note)
+      })
+
+      requestAnimationFrame(draw)
+    }
+
+    resize()
+    window.addEventListener('resize', resize)
+    requestAnimationFrame(draw)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('resize', resize)
+    }
+  // Intentionally empty deps — loop uses refs; restarts only if canvas is replaced.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <canvas
       ref={canvasRef}
-      className="w-full h-[400px] bg-gray-950/50"
+      className="w-full h-full bg-gray-950/50"
       aria-label="Notes en défilement"
     />
   )

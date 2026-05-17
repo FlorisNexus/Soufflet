@@ -14,6 +14,8 @@ import type { AccordionSystem } from '../constants/layouts'
 import { AccordionSynth } from '../audio/AccordionSynth'
 import { midiToColor, midiToFrenchNameWithOctave } from '../constants/notes'
 import ProgressBar from '../display/ProgressBar'
+import { MicrophoneManager } from '../audio/MicrophoneManager'
+import { PitchDetector } from '../audio/PitchDetector'
 
 type Props = {
   song: Song
@@ -24,11 +26,27 @@ type Props = {
 export default function Listen({ song, system, onBack }: Props) {
   const [countdown, setCountdown] = useState<number | null>(null)
   const [currentNote, setCurrentNote] = useState<SongNote | null>(null)
+  const [liveNote, setLiveNote] = useState<number | null>(null)
   const [synth] = useState(() => new AccordionSynth())
   const clearNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const kbMicRef = useRef(new MicrophoneManager())
+  const kbDetectorRef = useRef(new PitchDetector())
 
   const { isPlaying, isFinished, currentBeat, tempoMultiplier, play, stop, seek, setTempoMultiplier, totalBeats } =
     usePlayerState(song)
+
+  // Auto-start mic for keyboard display — shows played notes even before pressing Ecouter.
+  useEffect(() => {
+    const mic = kbMicRef.current
+    const detector = kbDetectorRef.current
+    mic.start()
+      .then(ctx => {
+        detector.start(ctx, mic.getSourceNode(), (note) => setLiveNote(note?.midiNote ?? null))
+      })
+      .catch(() => {})
+    return () => { detector.stop(); mic.stop() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleStop = useCallback(() => {
     stop()
@@ -251,7 +269,7 @@ export default function Listen({ song, system, onBack }: Props) {
         >
           <ButtonLayout
             system={system}
-            activeMidi={currentNote?.midiNote ?? null}
+            activeMidi={liveNote ?? currentNote?.midiNote ?? null}
             orientation="vertical"
           />
         </aside>
