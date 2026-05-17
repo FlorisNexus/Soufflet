@@ -11,6 +11,9 @@ import douceNuit from './library/douce-nuit.json'
 import laMarseillaise from './library/la-marseillaise.json'
 import laBambaIntro from './library/la-bamba-intro.json'
 import valseMusette from './library/valse-musette.json'
+import odeALaJoie from './library/ode-a-la-joie.json'
+import tarantella from './library/tarantella.json'
+import toZanarkand from './library/to-zanarkand.json'
 
 /**
  * Validates a raw object against the Song schema.
@@ -37,6 +40,9 @@ export const SONGS: Song[] = [
   assertSong(laMarseillaise),
   assertSong(laBambaIntro),
   assertSong(valseMusette),
+  assertSong(odeALaJoie),
+  assertSong(tarantella),
+  assertSong(toZanarkand),
 ]
 
 /**

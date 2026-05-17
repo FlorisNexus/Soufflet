@@ -1,17 +1,18 @@
 // App.tsx — root component; gates the app on calibration and routes between
-// Home, Player, FreePlay, and Calibration.
+// Home, Player, Listen, FreePlay, and Calibration.
 // Single-page app: no router library — the active view is derived from local state.
-// WHY: keeps bundle small and routing logic obvious. With only 4 views, a router
+// WHY: keeps bundle small and routing logic obvious. With only 5 views, a router
 // is overkill.
 import { useState } from 'react'
 import Home from './pages/Home'
 import Player from './pages/Player'
+import Listen from './pages/Listen'
 import FreePlay from './pages/FreePlay'
 import Calibration from './pages/Calibration'
 import { useCalibration } from './hooks/useCalibration'
 import type { Song } from './songs/schema'
 
-type View = 'home' | 'player' | 'free'
+type View = 'home' | 'player' | 'listen' | 'free'
 
 export default function App() {
   const { status, calibration, saveCalibration, clearCalibration } = useCalibration()
@@ -34,6 +35,16 @@ export default function App() {
     )
   }
 
+  if (view === 'listen' && activeSong) {
+    return (
+      <Listen
+        song={activeSong}
+        system={calibration.system}
+        onBack={() => { setActiveSong(null); setView('home') }}
+      />
+    )
+  }
+
   if (view === 'free') {
     return (
       <FreePlay
@@ -47,6 +58,7 @@ export default function App() {
   return (
     <Home
       onPlay={song => { setActiveSong(song); setView('player') }}
+      onListen={song => { setActiveSong(song); setView('listen') }}
       onFreePlay={() => setView('free')}
       onRecalibrate={clearCalibration}
     />

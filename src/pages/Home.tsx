@@ -8,15 +8,10 @@ import { SONGS } from '../songs/songLoader'
 import { progressStore } from '../store/progressStore'
 import type { Song } from '../songs/schema'
 
-/**
- * Props for the Home component.
- */
 type Props = {
-  /** Callback fired when a song is selected for playback */
   onPlay: (song: Song) => void
-  /** Callback fired when the user wants to enter Free Play mode */
+  onListen: (song: Song) => void
   onFreePlay: () => void
-  /** Callback fired when the user wants to clear the stored calibration */
   onRecalibrate: () => void
 }
 
@@ -39,7 +34,7 @@ function StarRating({ stars }: { stars: number }) {
  * Main entrance screen for the application.
  * Displays a grid of song cards with their titles, BPMs, and user progress.
  */
-export default function Home({ onPlay, onFreePlay, onRecalibrate }: Props) {
+export default function Home({ onPlay, onListen, onFreePlay, onRecalibrate }: Props) {
   // forceRender used to refresh progress indicators after returning from player
   const [, forceRender] = useState(0)
 
@@ -85,28 +80,26 @@ export default function Home({ onPlay, onFreePlay, onRecalibrate }: Props) {
             const bestStars = progressStore.getBestStars(song.id)
 
             return (
-              <button
+              <div
                 key={song.id}
-                onClick={() => { onPlay(song); forceRender(n => n + 1) }}
                 style={{ animationDelay: `${index * 100}ms` }}
-                className="group relative bg-gray-900 hover:bg-gray-800 rounded-[2.5rem] p-8 text-left
-                           border border-white/5 hover:border-amber-500/50 transition-all 
-                           active:scale-[0.98] shadow-xl hover:shadow-amber-500/10 
-                           animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
+                className="group relative bg-gray-900 hover:bg-gray-800 rounded-[2.5rem] p-8
+                           border border-white/5 hover:border-white/10 transition-all
+                           shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"
               >
-                <div className="absolute top-6 right-8 text-gray-800 group-hover:text-amber-500/20 text-5xl font-black transition-colors">
+                <div className="absolute top-6 right-8 text-gray-800 text-5xl font-black">
                   {index + 1}
                 </div>
 
                 <div className="relative z-10">
-                  <div className="w-14 h-14 bg-gray-800 group-hover:bg-amber-500 rounded-2xl flex items-center justify-center mb-6 transition-colors shadow-inner">
-                    <span className="text-2xl group-hover:scale-125 transition-transform">🎵</span>
+                  <div className="w-14 h-14 bg-gray-800 rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+                    <span className="text-2xl">🎵</span>
                   </div>
-                  
-                  <h3 className="font-black text-2xl mb-1 leading-tight group-hover:text-amber-400 transition-colors">
+
+                  <h3 className="font-black text-2xl mb-1 leading-tight text-white">
                     {song.title}
                   </h3>
-                  
+
                   <div className="flex items-center gap-2 mb-6">
                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 py-0.5 px-2 bg-black/30 rounded-md">
                       {song.bpm} BPM
@@ -118,14 +111,35 @@ export default function Home({ onPlay, onFreePlay, onRecalibrate }: Props) {
                     )}
                   </div>
 
-                  <div className="pt-6 border-t border-white/5 flex items-center justify-between">
+                  <div className="pt-6 border-t border-white/5 flex items-center gap-2">
                     <StarRating stars={bestStars} />
-                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-black transition-all">
-                      <span className="text-xl">→</span>
-                    </div>
+                    <div className="flex-1" />
+                    {/* Listen: hear the melody before playing */}
+                    <button
+                      onClick={() => onListen(song)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all active:scale-95 border"
+                      style={{
+                        background: 'rgba(99,102,241,0.08)',
+                        borderColor: 'rgba(99,102,241,0.25)',
+                        color: '#818cf8',
+                      }}
+                    >
+                      👂 Écouter
+                    </button>
+                    {/* Play: practice with microphone */}
+                    <button
+                      onClick={() => { onPlay(song); forceRender(n => n + 1) }}
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-black text-lg transition-all active:scale-95"
+                      style={{
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        color: '#000',
+                      }}
+                    >
+                      →
+                    </button>
                   </div>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
