@@ -47,7 +47,7 @@ export default function Home({ onPlay, onListen, onFreePlay, onRecalibrate }: Pr
             <span className="text-6xl">🪗</span>
           </div>
           <h1 className="text-7xl font-black text-white tracking-tighter mb-4">
-            SOUFFLET
+            Soufflet
           </h1>
           <p className="text-gray-400 text-xl font-medium max-w-md mx-auto leading-relaxed">
             Apprends l'accordéon chromatique <span className="text-amber-500">sans solfège</span>, par l'écoute et le jeu.
