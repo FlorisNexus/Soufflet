@@ -25,9 +25,9 @@ type Props = {
   onNoteAtLine: (note: SongNote) => void
 }
 
-const CANVAS_HEIGHT = 400 // Plus haut
-const PLAY_LINE_Y = CANVAS_HEIGHT - 60  // Plus d'espace en bas
-const BEATS_VISIBLE = 5                 // Plus de visibilité anticipée
+const CANVAS_HEIGHT = 400
+const PLAY_LINE_Y = Math.round(CANVAS_HEIGHT * 0.62)  // more room below for notes to scroll after hit
+const BEATS_VISIBLE = 5
 const NOTE_WIDTH = 40                   // Plus large pour correspondre aux nouveaux boutons
 const NOTE_CORNER_RADIUS = 10
 
@@ -94,7 +94,9 @@ export default function FallingNotes({ song, currentBeat, system, showNoteNames,
     // Draw each visible note rectangle
     song.notes.forEach(note => {
       const beatsUntilNote = note.startBeat - currentBeat
-      if (beatsUntilNote > BEATS_VISIBLE || beatsUntilNote < -note.durationBeats) return
+      // Keep drawing until the note's top edge exits the canvas bottom.
+      const maxBeatsBelow = BEATS_VISIBLE * (CANVAS_HEIGHT / PLAY_LINE_Y - 1)
+      if (beatsUntilNote > BEATS_VISIBLE || beatsUntilNote < -(note.durationBeats + maxBeatsBelow)) return
 
       const pos = layout.get(note.midiNote)
       if (!pos) return

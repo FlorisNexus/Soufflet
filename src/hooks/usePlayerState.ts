@@ -103,9 +103,16 @@ export function usePlayerState(song: Song): UsePlayerStateReturn {
   }, [totalBeats])
 
   const setTempoMultiplier = useCallback((m: number) => {
+    // Re-anchor the beat clock at the current position so tempo changes apply
+    // immediately without causing a visual jump (startBeatRef absorbs the drift).
+    if (startTimeRef.current !== null) {
+      const elapsed = (performance.now() - startTimeRef.current) / 1000
+      startBeatRef.current = startBeatRef.current + elapsed * (song.bpm / 60) * tempoRef.current
+      startTimeRef.current = null
+    }
     tempoRef.current = m
     setState(prev => ({ ...prev, tempoMultiplier: m }))
-  }, [])
+  }, [song.bpm])
 
   useEffect(() => {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }

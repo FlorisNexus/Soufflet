@@ -61,7 +61,8 @@ export default function Player({ song, system, onBack }: Props) {
 
   const handleStop = useCallback(() => {
     stop()
-    stopListening()
+    // Keep mic listening after pause so note detection stays visible on keyboard.
+    // Mic is only stopped on component unmount or when navigating back.
     setCountdown(null)
     setFeedback(null)
     setTargetNote(null)

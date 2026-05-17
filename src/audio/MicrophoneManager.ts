@@ -35,6 +35,10 @@ export class MicrophoneManager {
     return this.sourceNode
   }
 
+  getStream(): MediaStream | null {
+    return this.stream
+  }
+
   /**
    * Stops all audio tracks and closes the AudioContext.
    */

@@ -6,13 +6,15 @@
  * minimal to maximise the music-making focus.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AccordionSystem } from '../constants/layouts'
 import { useFreePlaySession } from '../hooks/useFreePlaySession'
 import PianoRoll from '../display/PianoRoll'
 import ButtonLayout from '../display/ButtonLayout'
+import BassLayout from '../display/BassLayout'
 import { centsFromHz, midiToColor, midiToFrenchNameWithOctave } from '../constants/notes'
 import { AudioReferencePlayer } from '../audio/AudioReferencePlayer'
+import { BassPitchDetector } from '../audio/BassPitchDetector'
 
 type Props = {
   system: AccordionSystem
@@ -26,16 +28,48 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
 
   const [audioRefEnabled, setAudioRefEnabled] = useState(false)
   const [audioRef] = useState(() => new AudioReferencePlayer())
+  const [activeBassPC, setActiveBassPC] = useState<number | null>(null)
+  const bassDetectorRef = useRef(new BassPitchDetector())
 
   useEffect(() => { audioRef.setMuted(!audioRefEnabled) }, [audioRef, audioRefEnabled])
   useEffect(() => () => audioRef.dispose(), [audioRef])
+  useEffect(() => () => bassDetectorRef.current.stop(), [])
 
   const playReference = useCallback(
     (midi: number) => { if (audioRefEnabled) audioRef.play(midi) },
     [audioRef, audioRefEnabled],
   )
 
-  const handleBack = useCallback(() => { stop(); audioRef.stopAll(); onBack() }, [stop, audioRef, onBack])
+  // Wire bass detector whenever the mic stream becomes available.
+  const { start: baseStart, stop: baseStop, reset: baseReset } = {
+    start: start, stop: stop, reset: reset,
+  }
+  const handleStart = useCallback(async () => {
+    await baseStart()
+    // useFreePlaySession exposes the mic via its internal MicrophoneManager.
+    // We reach the stream by importing MicrophoneManager separately — but since
+    // useFreePlaySession doesn't expose it, we use a small workaround: ask the
+    // browser for the SAME mic stream (browser returns the same track from cache).
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      bassDetectorRef.current.start(stream, (note) => {
+        setActiveBassPC(note ? note.pitchClass : null)
+      })
+    } catch { /* bass detection not available */ }
+  }, [baseStart])
+
+  const handleStop = useCallback(() => {
+    baseStop()
+    bassDetectorRef.current.stop()
+    setActiveBassPC(null)
+  }, [baseStop])
+
+  const handleReset = useCallback(() => {
+    baseReset()
+    setActiveBassPC(null)
+  }, [baseReset])
+
+  const handleBack = useCallback(() => { handleStop(); audioRef.stopAll(); onBack() }, [handleStop, audioRef, onBack])
 
   const noteColor = currentNote ? midiToColor(currentNote.midi) : null
   const readout = (() => {
@@ -136,10 +170,23 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
         </div>
       )}
 
-      {/* ── MAIN: left column + right keyboard ──────────────────────────── */}
+      {/* ── MAIN: bass panel + center + keyboard ────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── LEFT COLUMN ─────────────────────────────────────────────── */}
+        {/* ── LEFT PANEL — left-hand Stradella bass ───────────────────── */}
+        <aside
+          className="shrink-0 flex items-start justify-center overflow-y-auto border-r"
+          style={{
+            borderColor: 'rgba(255,255,255,0.06)',
+            background: 'rgba(8,8,18,0.95)',
+            padding: '1rem 0.75rem',
+            boxShadow: '1px 0 0 0 rgba(245,158,11,0.06)',
+          }}
+        >
+          <BassLayout activePitchClass={activeBassPC} />
+        </aside>
+
+        {/* ── CENTER COLUMN ───────────────────────────────────────────── */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
           {/* Piano roll — flex-1 so it fills all available space */}
@@ -228,7 +275,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
           >
             {!isListening ? (
               <button
-                onClick={start}
+                onClick={handleStart}
                 className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-2xl font-black text-base uppercase tracking-wider transition-all active:scale-[0.98]"
                 style={{
                   background: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -241,7 +288,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
             ) : (
               <>
                 <button
-                  onClick={reset}
+                  onClick={handleReset}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.98] border"
                   style={{
                     background: 'rgba(255,255,255,0.04)',
@@ -252,7 +299,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
                   ↻ Réinitialiser
                 </button>
                 <button
-                  onClick={stop}
+                  onClick={handleStop}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-bold uppercase tracking-wider transition-all active:scale-[0.98] border"
                   style={{
                     background: 'rgba(239,68,68,0.08)',
@@ -267,7 +314,7 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
           </div>
         </div>
 
-        {/* ── RIGHT PANEL — keyboard ───────────────────────────────────── */}
+        {/* ── RIGHT PANEL — right-hand keyboard ──────────────────────── */}
         <aside
           className="shrink-0 flex items-start justify-center overflow-y-auto border-l"
           style={{
@@ -275,7 +322,6 @@ export default function FreePlay({ system, onBack, onRecalibrate }: Props) {
             borderColor: 'rgba(255,255,255,0.06)',
             background: 'rgba(8,8,18,0.95)',
             padding: '1rem 0.75rem',
-            /* Subtle vertical line on the left to separate panel */
             boxShadow: '-1px 0 0 0 rgba(245,158,11,0.08)',
           }}
         >
